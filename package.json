@@ -10,7 +10,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test \"tests/*.test.ts\""
+    "test": "node --experimental-strip-types --test \"tests/*.test.ts\"",
+    "test:ui": "vitest run"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
