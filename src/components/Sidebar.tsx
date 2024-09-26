@@ -47,7 +47,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     const fetchUserInfo = async () => {
       const storedTokens = localStorage.getItem("gmail_tokens")
-      console.log("Stored tokens:", storedTokens) // Debug log
 
       if (storedTokens) {
         const tokens = JSON.parse(storedTokens)
