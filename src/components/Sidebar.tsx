@@ -60,8 +60,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             body: JSON.stringify({ tokens }),
           })
 
-          console.log("Response status:", response.status) // Debug log
-
           if (response.ok) {
             const data = await response.json()
             console.log("Fetched user info:", data) // Debug log
