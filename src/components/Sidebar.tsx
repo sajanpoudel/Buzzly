@@ -62,7 +62,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
           if (response.ok) {
             const data = await response.json()
-            console.log("Fetched user info:", data) // Debug log
             setUserInfo(data)
           } else {
             const errorData = await response.json()
