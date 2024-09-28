@@ -73,7 +73,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           setError("Error fetching user info")
         }
       } else {
-        console.log("No tokens found in localStorage")
         setError("No authentication tokens found")
       }
     }
