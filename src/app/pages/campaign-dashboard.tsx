@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Sidebar from '@/components/Sidebar'
+import Link from 'next/link'
 
 const campaignData = [
   { 
@@ -179,9 +180,11 @@ export default function CampaignDashboard() {
 
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold dark:text-white">Campaigns</h1>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Create Campaign
-            </Button>
+            <Link href="/create-campaign">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> Create Campaign
+              </Button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-4 gap-4 mb-6">

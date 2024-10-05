@@ -86,9 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ darkMode, toggleDarkMode }) => (
         <MoreVertical className="h-4 w-4" />
       </Button>
     </div>
-    <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-      {darkMode ? <Sun className="h-[1.2rem] w-[1.2rem]" /> : <Moon className="h-[1.2rem] w-[1.2rem]" />}
-    </Button>
+
   </aside>
 )
 
