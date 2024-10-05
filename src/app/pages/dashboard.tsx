@@ -140,6 +140,9 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <h1 className="text-2xl font-bold dark:text-white">Email Analytics</h1>
             <div className="flex items-center space-x-4">
+              <Link href="/create-campaign">
+                <Button variant="outline">Create Campaign</Button>
+              </Link>
               <Select defaultValue="30">
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Select a period" />

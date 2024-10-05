@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, Moon, Bell, ChevronDown, LayoutDashboard, Mail, Users, Settings, MoreVertical, Calendar as CalendarIcon, Upload, Sparkles, Sun, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ import { format } from "date-fns"
 import { enUS } from "date-fns/locale"
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
+import SuccessModal from '@/components/SuccessModal'
 
 const emailTemplates = [
   { id: 1, name: "Welcome Email", subject: "Welcome to Our Service!", body: "Dear [Name],\n\nWelcome to our service! We're excited to have you on board..." },
@@ -25,6 +27,10 @@ const emailTemplates = [
 ]
 
 export default function CreateCampaign() {
+  const router = useRouter()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
+  const [tokens, setTokens] = useState(null)
   const [darkMode, setDarkMode] = useState(false)
   const [campaignName, setCampaignName] = useState('')
   const [campaignType, setCampaignType] = useState('')
@@ -36,14 +42,80 @@ export default function CreateCampaign() {
   const [selectedTemplate, setSelectedTemplate] = useState('')
   const [audienceFile, setAudienceFile] = useState<File | null>(null)
   const [activeTab, setActiveTab] = useState('details')
+  const [csvData, setCsvData] = useState<{ name: string; email: string }[]>([])
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalMessage, setModalMessage] = useState('')
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const storedTokens = localStorage.getItem('gmail_tokens')
+      if (storedTokens) {
+        const parsedTokens = JSON.parse(storedTokens)
+        setTokens(parsedTokens)
+        setIsAuthenticated(true)
+        // Fetch user email using the access token
+        try {
+          const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: {
+              Authorization: `Bearer ${parsedTokens.access_token}`,
+            },
+          })
+          const data = await response.json()
+          setUserEmail(data.email)
+        } catch (error) {
+          console.error('Error fetching user info:', error)
+        }
+      } else {
+        router.push('/') // Redirect to login page if not authenticated
+      }
+    }
+    checkAuth()
+  }, [router])
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
   }
 
-  const handleSaveCampaign = () => {
-    console.log('Campaign saved:', { campaignName, campaignType, subject, body, sendDate, targetAudience, isRecurring, selectedTemplate, audienceFile })
+  const handleSaveCampaign = async () => {
+    if (!isAuthenticated) {
+      console.error('User is not authenticated')
+      return
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/auth/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipients: csvData,
+          subject,
+          body,
+          userEmail,
+          tokens,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to send emails')
+      }
+
+      const result = await response.json()
+      console.log('Campaign saved and emails sent:', result)
+      
+      // Show success modal
+      setModalMessage(`Emails sent successfully to ${result.info.length} recipients!`)
+      setIsModalOpen(true)
+      
+      // Optionally, reset form or redirect here
+    } catch (error) {
+      console.error('Error saving campaign and sending emails:', error)
+      // Show error modal
+      setModalMessage('Error sending emails. Please try again.')
+      setIsModalOpen(true)
+    }
   }
 
   const handleTemplateChange = (templateId: string) => {
@@ -58,7 +130,18 @@ export default function CreateCampaign() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      setAudienceFile(file)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const text = e.target?.result as string
+        const rows = text.split('\n').slice(1) // Skip header row
+        const parsedData = rows.map(row => {
+          const [name, email] = row.split(',')
+          return { name: name.trim(), email: email.trim() }
+        })
+        setCsvData(parsedData)
+        setAudienceFile(file)
+      }
+      reader.readAsText(file)
     }
   }
 
@@ -76,6 +159,10 @@ export default function CreateCampaign() {
     } else if (activeTab === 'audience') {
       setActiveTab('content')
     }
+  }
+
+  if (!isAuthenticated) {
+    return <div>Loading...</div> // Or a more sophisticated loading state
   }
 
   return (
@@ -268,12 +355,12 @@ export default function CreateCampaign() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="audienceFile">Upload Audience File (CSV or Excel)</Label>
+                      <Label htmlFor="audienceFile">Upload Audience File (CSV)</Label>
                       <div className="flex items-center space-x-2">
                         <Input
                           id="audienceFile"
                           type="file"
-                          accept=".csv,.xlsx,.xls"
+                          accept=".csv"
                           onChange={handleFileUpload}
                           className="flex-grow"
                         />
@@ -284,7 +371,7 @@ export default function CreateCampaign() {
                       </div>
                       {audienceFile && (
                         <p className="text-sm text-gray-500 mt-1">
-                          File selected: {audienceFile.name}
+                          File selected: {audienceFile.name} ({csvData.length} recipients)
                         </p>
                       )}
                     </div>
@@ -311,6 +398,11 @@ export default function CreateCampaign() {
           </Card>
         </main>
       </div>
+      <SuccessModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        message={modalMessage}
+      />
     </div>
   )
 }
