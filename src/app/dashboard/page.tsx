@@ -1,5 +1,5 @@
 import Dashboard from "../pages/dashboard"
 
-export default function HealthAssistantRoute() {
+export default function DashboardRoute() {
   return <Dashboard/>
 }

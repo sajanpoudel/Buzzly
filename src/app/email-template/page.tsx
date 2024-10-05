@@ -1,5 +1,5 @@
 import EmailTemplateDashboard from "../pages/email-template"
 
-export default function HealthAssistantRoute() {
+export default function EmailTemplateRoute() {
   return <EmailTemplateDashboard/>
 }

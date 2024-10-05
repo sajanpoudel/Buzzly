@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Sidebar from '@/components/Sidebar'
+import Link from 'next/link'
 
 const statsData = [
   { label: "Total email sent", value: "5,325", subLabel: "Check history" },
@@ -88,7 +89,9 @@ export default function EmailTemplateDashboard() {
 
             <div className="flex justify-between items-center mb-4">
               <div className="space-x-2">
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white">CREATE EMAIL</Button>
+                <Link href="/create-template">
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white">CREATE EMAIL TEMPLATE</Button>
+                </Link>
                 <Button variant="outline">ADD NEW CLIENT</Button>
               </div>
               <Select defaultValue="30">
