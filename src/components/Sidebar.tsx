@@ -3,20 +3,31 @@ import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LayoutDashboard, MessageSquare, CreditCard, FileText, Users, Mail, Settings, ChevronDown, ChevronRight, MoreVertical, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, CreditCard, FileText, Users, Mail, Settings, ChevronDown, ChevronRight, MoreVertical, Sun, Moon, ChevronLeft } from 'lucide-react'
 
 interface SidebarProps {
   darkMode: boolean;
   toggleDarkMode: () => void;
+  className?: string;
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (isOpen: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ darkMode, toggleDarkMode }) => (
-  <aside className="w-64 bg-white dark:bg-gray-800 p-6 flex flex-col overflow-y-auto transition-colors duration-200">
-    <div className="flex items-center space-x-2 mb-8">
-      <div className="w-8 h-8 bg-purple-600 rounded-lg"></div>
-      <span className="text-xl font-bold dark:text-white">Makerkit</span>
-    </div>
-    <div className="flex-1">
+const Sidebar: React.FC<SidebarProps> = ({ darkMode, toggleDarkMode, className, isMobileMenuOpen, setIsMobileMenuOpen }) => (
+  <aside className={`bg-white dark:bg-gray-800 flex flex-col transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-50 w-64 lg:w-64 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 ${className}`}>
+    <div className="flex-1 overflow-y-auto p-6">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-4 right-4 lg:hidden"
+        onClick={() => setIsMobileMenuOpen(false)}
+      >
+        <ChevronLeft className="h-6 w-6" />
+      </Button>
+      <div className="flex items-center space-x-2 mb-8">
+        <div className="w-8 h-8 bg-purple-600 rounded-lg"></div>
+        <span className="text-xl font-bold dark:text-white">Makerkit</span>
+      </div>
       <Input placeholder="Search" className="mb-6" />
       <nav className="space-y-1">
         <Link href="/dashboard">
@@ -73,20 +84,21 @@ const Sidebar: React.FC<SidebarProps> = ({ darkMode, toggleDarkMode }) => (
         </Button>
       </nav>
     </div>
-    <div className="flex items-center mt-6">
-      <Avatar className="h-10 w-10">
-        <AvatarImage src="/placeholder-user.jpg" alt="Darrell Steward" />
-        <AvatarFallback>DS</AvatarFallback>
-      </Avatar>
-      <div className="ml-3">
-        <p className="text-sm font-medium dark:text-white">Darrell Steward</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">tanya@example.com</p>
+    <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex items-center">
+        <Avatar className="h-10 w-10">
+          <AvatarImage src="/placeholder-user.jpg" alt="Darrell Steward" />
+          <AvatarFallback>DS</AvatarFallback>
+        </Avatar>
+        <div className="ml-3">
+          <p className="text-sm font-medium dark:text-white">Darrell Steward</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">tanya@example.com</p>
+        </div>
+        <Button variant="ghost" size="icon" className="ml-auto">
+          <MoreVertical className="h-4 w-4" />
+        </Button>
       </div>
-      <Button variant="ghost" size="icon" className="ml-auto">
-        <MoreVertical className="h-4 w-4" />
-      </Button>
     </div>
-
   </aside>
 )
 

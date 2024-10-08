@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState } from 'react'
-import { Search, Grid, Moon, Bell, MoreVertical, ChevronDown, ArrowUpRight } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Search, Grid, Moon, Bell, MoreVertical, ChevronDown, ArrowUpRight, Menu, Sun } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -36,48 +36,76 @@ const recentlySentData = [
 
 export default function EmailTemplateDashboard() {
   const [darkMode, setDarkMode] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  useEffect(() => {
+    // Check if dark mode is enabled in localStorage
+    const isDarkMode = localStorage.getItem('darkMode') === 'true'
+    setDarkMode(isDarkMode)
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark')
+    }
+  }, [])
 
   const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
+    const newDarkMode = !darkMode
+    setDarkMode(newDarkMode)
+    localStorage.setItem('darkMode', newDarkMode.toString())
     document.documentElement.classList.toggle('dark')
   }
 
   return (
-    <div className={`flex h-screen ${darkMode ? 'dark' : ''}`}>
-      <Sidebar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white dark:bg-gray-800 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-            <div className="relative flex-grow max-w-xl">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <Input type="search" placeholder="Search email or templates" className="pl-10 pr-4 py-2 w-full" />
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon">
-                <Grid className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Moon className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
-              </Button>
-              <Avatar>
-                <AvatarImage src="/placeholder-user.jpg" />
-                <AvatarFallback>CN</AvatarFallback>
-              </Avatar>
-            </div>
-          </div>
-        </header>
+    <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
+      <header className="bg-white dark:bg-gray-800 shadow-sm lg:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
+            <Menu className="h-6 w-6" />
+          </Button>
+          <h1 className="text-xl font-bold dark:text-white">Email Templates</h1>
+          <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
+            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+        </div>
+      </header>
 
-        <main className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900">
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar 
+          darkMode={darkMode} 
+          toggleDarkMode={toggleDarkMode}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+          className="hidden lg:block"
+        />
+        <main className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="grid grid-cols-4 gap-4 mb-8">
+            <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative w-full lg:w-96 mb-4 lg:mb-0">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Input type="search" placeholder="Search email or templates" className="pl-10 pr-4 py-2 w-full" />
+              </div>
+              <div className="flex items-center space-x-4">
+                <Button variant="ghost" size="icon" className="hidden lg:inline-flex">
+                  <Grid className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={toggleDarkMode}>
+                  {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </Button>
+                <Button variant="ghost" size="icon" className="hidden lg:inline-flex">
+                  <Bell className="h-5 w-5" />
+                </Button>
+                <Avatar>
+                  <AvatarImage src="/placeholder-user.jpg" />
+                  <AvatarFallback>CN</AvatarFallback>
+                </Avatar>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {statsData.map((stat, index) => (
                 <Card key={index}>
                   <CardContent className="p-4">
                     <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
-                    <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                    <p className="text-2xl font-bold mt-1 dark:text-white">{stat.value}</p>
                     <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
                       <ArrowUpRight className="inline h-3 w-3 mr-1" />
                       {stat.subLabel}
@@ -87,15 +115,15 @@ export default function EmailTemplateDashboard() {
               ))}
             </div>
 
-            <div className="flex justify-between items-center mb-4">
-              <div className="space-x-2">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 space-y-4 lg:space-y-0">
+              <div className="space-y-2 lg:space-y-0 lg:space-x-2 w-full lg:w-auto">
                 <Link href="/create-template">
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white">CREATE EMAIL TEMPLATE</Button>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full lg:w-auto mb-2 lg:mb-0">CREATE EMAIL TEMPLATE</Button>
                 </Link>
-                <Button variant="outline">ADD NEW CLIENT</Button>
+                <Button variant="outline" className="w-full lg:w-auto">ADD NEW CLIENT</Button>
               </div>
               <Select defaultValue="30">
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full lg:w-[180px]">
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
@@ -106,51 +134,53 @@ export default function EmailTemplateDashboard() {
               </Select>
             </div>
 
-            <div className="flex space-x-8">
+            <div className="flex flex-col lg:flex-row space-y-8 lg:space-y-0 lg:space-x-8">
               <Card className="flex-grow">
                 <CardContent className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">Recently used templates</h2>
+                    <h2 className="text-xl font-semibold dark:text-white">Recently used templates</h2>
                     <Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose email templates for time saving</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>TEMPLATE</TableHead>
-                        <TableHead>FEES</TableHead>
-                        <TableHead>SELECTION</TableHead>
-                        <TableHead>CUSTOMIZE</TableHead>
-                        <TableHead>MORE</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {templateData.map((template, index) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <div className="flex items-center">
-                              <div className="w-8 h-8 bg-purple-100 rounded-lg mr-2"></div>
-                              <div>
-                                <p className="font-medium">{template.name}</p>
-                                <p className="text-sm text-gray-500">{template.description}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{template.price}</TableCell>
-                          <TableCell><Button variant="outline" size="sm">PREVIEW</Button></TableCell>
-                          <TableCell><Button variant="outline" size="sm">EDIT</Button></TableCell>
-                          <TableCell><Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button></TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="dark:text-gray-300">TEMPLATE</TableHead>
+                          <TableHead className="dark:text-gray-300">FEES</TableHead>
+                          <TableHead className="dark:text-gray-300">SELECTION</TableHead>
+                          <TableHead className="dark:text-gray-300">CUSTOMIZE</TableHead>
+                          <TableHead className="dark:text-gray-300">MORE</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {templateData.map((template, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="dark:text-gray-300">
+                              <div className="flex items-center">
+                                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg mr-2"></div>
+                                <div>
+                                  <p className="font-medium dark:text-white">{template.name}</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">{template.description}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="dark:text-gray-300">{template.price}</TableCell>
+                            <TableCell><Button variant="outline" size="sm">PREVIEW</Button></TableCell>
+                            <TableCell><Button variant="outline" size="sm">EDIT</Button></TableCell>
+                            <TableCell><Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card className="w-80">
+              <Card className="w-full lg:w-80">
                 <CardContent className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">RECENTLY SEND</h2>
+                    <h2 className="text-xl font-semibold dark:text-white">RECENTLY SEND</h2>
                     <Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button>
                   </div>
                   <ul className="space-y-4">
@@ -161,8 +191,8 @@ export default function EmailTemplateDashboard() {
                             <AvatarFallback>{item.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-gray-500">{item.time}</p>
+                            <p className="font-medium dark:text-white">{item.name}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{item.time}</p>
                           </div>
                         </div>
                         <Button variant="ghost" size="sm"><ArrowUpRight className="h-4 w-4" /></Button>
@@ -176,6 +206,23 @@ export default function EmailTemplateDashboard() {
           </div>
         </main>
       </div>
+
+      {/* Mobile sidebar overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        ></div>
+      )}
+
+      {/* Mobile sidebar */}
+      <Sidebar 
+        darkMode={darkMode} 
+        toggleDarkMode={toggleDarkMode} 
+        className="lg:hidden"
+        isMobileMenuOpen={isMobileMenuOpen}
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
+      />
     </div>
   )
 }
