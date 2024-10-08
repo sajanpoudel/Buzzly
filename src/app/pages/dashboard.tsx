@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { ArrowUpRight, Bell, Calendar, ChevronDown, ChevronRight, CreditCard, FileText, HelpCircle, LayoutDashboard, Mail, Menu, MessageSquare, Moon, MoreVertical, Search, Settings, Sun, Users } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { TooltipProps } from 'recharts';
 import { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 import Sidebar from '@/components/Sidebar'
+import EmailTrackingStats from '@/components/EmailTrackingStats';
 
 interface StatCardProps {
   title: string;
@@ -126,11 +127,20 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
 
 export default function Dashboard() {
   const [darkMode, setDarkMode] = useState(false)
+  const [trackingIds, setTrackingIds] = useState<string[]>([]);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
   }
+
+  useEffect(() => {
+    // Fetch tracking IDs from localStorage or your backend
+    const storedTrackingIds = localStorage.getItem('trackingIds');
+    if (storedTrackingIds) {
+      setTrackingIds(JSON.parse(storedTrackingIds));
+    }
+  }, []);
 
   return (
     <div className={`flex h-screen ${darkMode ? 'dark' : ''}`}>
@@ -211,6 +221,17 @@ export default function Dashboard() {
                 />
               ))}
             </div>
+          </div>
+
+          <div className="mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Real-time Email Tracking</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EmailTrackingStats trackingIds={trackingIds} />
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

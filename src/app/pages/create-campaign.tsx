@@ -45,6 +45,7 @@ export default function CreateCampaign() {
   const [csvData, setCsvData] = useState<{ name: string; email: string }[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMessage, setModalMessage] = useState('')
+  const [trackingIds, setTrackingIds] = useState<string[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -79,16 +80,18 @@ export default function CreateCampaign() {
 
   const handleSaveCampaign = async () => {
     if (!isAuthenticated) {
-      console.error('User is not authenticated')
-      return
+      console.error('User is not authenticated');
+      return;
     }
 
     try {
-      const response = await fetch('http://localhost:3000/auth/send-email', {
+      const response = await fetch('https://6a34-192-122-237-12.ngrok-free.app/auth/send-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
         },
+        credentials: 'include',
         body: JSON.stringify({
           recipients: csvData,
           subject,
@@ -96,27 +99,32 @@ export default function CreateCampaign() {
           userEmail,
           tokens,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to send emails')
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result = await response.json()
-      console.log('Campaign saved and emails sent:', result)
+      const result = await response.json();
+      console.log('Campaign saved and emails sent:', result);
+      
+      // Store tracking IDs
+      const newTrackingIds = result.info.map((item: any) => item.trackingId);
+      setTrackingIds(prevIds => {
+        const updatedIds = [...prevIds, ...newTrackingIds];
+        localStorage.setItem('trackingIds', JSON.stringify(updatedIds));
+        return updatedIds;
+      });
       
       // Show success modal
       setModalMessage(`Emails sent successfully to ${result.info.length} recipients!`)
       setIsModalOpen(true)
-      
-      // Optionally, reset form or redirect here
     } catch (error) {
-      console.error('Error saving campaign and sending emails:', error)
-      // Show error modal
-      setModalMessage('Error sending emails. Please try again.')
-      setIsModalOpen(true)
+      console.error('Error saving campaign and sending emails:', error);
+      setModalMessage('Error sending emails. Please try again.');
+      setIsModalOpen(true);
     }
-  }
+  };
 
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplate(templateId)
@@ -191,7 +199,6 @@ export default function CreateCampaign() {
                 <Bell className="h-5 w-5" />
               </Button>
               <Avatar>
-                <AvatarImage src="/placeholder-user.jpg" />
                 <AvatarFallback>JD</AvatarFallback>
               </Avatar>
             </div>
