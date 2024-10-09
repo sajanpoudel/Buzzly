@@ -7,9 +7,15 @@ import { useRouter } from 'next/navigation'
 
 export default function Login() {
   const router = useRouter()
+  console.log('Login');
 
   const handleGoogleLogin = async () => {
     try {
+      const token = localStorage.getItem('gmail_tokens');
+      console.log('Token at login :', token);
+      if(token){
+        router.push('/dashboard');
+      }
       // Redirect to your backend's Google OAuth URL
       window.location.href = 'https://emailapp-backend.onrender.com/auth/google'
     } catch (error) {

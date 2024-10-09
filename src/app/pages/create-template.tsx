@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Search, Moon, Bell, MoreVertical, Menu, Sun } from 'lucide-react'
+import { Search, Moon, Bell, MoreVertical, Menu, Sun, Loader } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import { getInitialsFromEmail } from '@/utils/stringUtils';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default function CreateTemplate() {
   const [darkMode, setDarkMode] = useState(false)
@@ -19,18 +20,11 @@ export default function CreateTemplate() {
   const [templateFee, setTemplateFee] = useState('')
   const [templateCategory, setTemplateCategory] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
-  const [subject, setSubject] = useState('Important Update Regarding Your Loan Application')
-  const [body, setBody] = useState(`Dear [Client Name],
-
-I Hope This Message Finds You Well. I Wanted To Provide You With An Update Regarding Your Recent Loan Application. Our Team Is Diligently Processing Your Request And Will Have A Status Update For You Soon.
-
-Thank You For Your Patience And Cooperation During This Process.
-
-Warm Regards,
-[Loan Officer Name]
-Loan Officer`)
+  const [subject, setSubject] = useState('')
+  const [body, setBody] = useState('')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -64,6 +58,36 @@ Loan Officer`)
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
   }
+
+  const generateTemplate = async () => {
+    setIsGenerating(true);
+    try {
+      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+      const prompt = `Generate an email template with the following details:
+        Template Name: ${templateName}
+        Category: ${templateCategory}
+        Description: ${templateDescription}
+        
+        Please provide a subject line and email body. Use [NAME] as a placeholder for the recipient's name. Do not include "Subject:" or any asterisks in the response. Separate the subject and body with two newline characters.`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const generatedText = response.text();
+
+      console.log('Generated Text:', generatedText);
+
+      const [generatedSubject, ...bodyParts] = generatedText.split('\n\n');
+      setSubject(generatedSubject.trim());
+      setBody(bodyParts.join('\n\n').trim());
+    } catch (error) {
+      console.error('Error generating template:', error);
+      // You might want to set an error state here to display to the user
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleSaveTemplate = () => {
     // Implement save template logic here
@@ -168,6 +192,15 @@ Loan Officer`)
                     </div>
                   </div>
                 
+                  <Button 
+                    onClick={generateTemplate} 
+                    disabled={isGenerating || !templateName || !templateCategory || !templateDescription}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    {isGenerating ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Generate Template
+                  </Button>
+
                   <div className="space-y-2">
                     <Label htmlFor="subject">Subject</Label>
                     <Input
