@@ -11,7 +11,7 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     try {
       // Redirect to your backend's Google OAuth URL
-      window.location.href = 'http://localhost:3000/auth/google'
+      window.location.href = 'https://emailapp-backend.onrender.com/auth/google'
     } catch (error) {
       console.error('Error during Google login:', error)
     }

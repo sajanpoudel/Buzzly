@@ -19,7 +19,7 @@ const EmailTrackingStats: React.FC<EmailTrackingStatsProps> = ({ trackingIds }) 
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('https://6a34-192-122-237-12.ngrok-free.app/auth/email-stats', {
+      const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

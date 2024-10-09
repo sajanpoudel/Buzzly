@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { ArrowUpRight, Bell, Calendar, Clock, HelpCircle, LayoutDashboard, Mail, Moon, MoreVertical, Plus, Search, Menu, Sun } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
+import { getInitialsFromEmail } from '@/utils/stringUtils';
 
 const campaignData = [
   { 
@@ -132,11 +133,40 @@ const CampaignCard: React.FC<{ campaign: Campaign }> = ({ campaign }) => (
 export default function CampaignDashboard() {
   const [darkMode, setDarkMode] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
   }
+
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      const storedTokens = localStorage.getItem('gmail_tokens');
+      if (storedTokens) {
+        const tokens = JSON.parse(storedTokens);
+        try {
+          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ tokens }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setUserInfo(data);
+          } else {
+            console.error('Failed to fetch user info');
+          }
+        } catch (error) {
+          console.error('Error fetching user info:', error);
+        }
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
 
   return (
     <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
@@ -180,8 +210,13 @@ export default function CampaignDashboard() {
                   <Bell className="h-5 w-5" />
                 </Button>
                 <Avatar>
-                  <AvatarImage src="/placeholder-user.jpg" />
-                  <AvatarFallback>CN</AvatarFallback>
+                  {userInfo && userInfo.picture ? (
+                    <AvatarImage src={userInfo.picture} alt={userInfo.name || userInfo.email} />
+                  ) : (
+                    <AvatarFallback>
+                      {userInfo ? getInitialsFromEmail(userInfo.email) : 'U'}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
               </div>
             </div>

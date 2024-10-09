@@ -19,6 +19,7 @@ import { enUS } from "date-fns/locale"
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import SuccessModal from '@/components/SuccessModal'
+import { getInitialsFromEmail } from '@/utils/stringUtils';
 
 const emailTemplates = [
   { id: 1, name: "Welcome Email", subject: "Welcome to Our Service!", body: "Dear [Name],\n\nWelcome to our service! We're excited to have you on board..." },
@@ -47,6 +48,7 @@ export default function CreateCampaign() {
   const [modalMessage, setModalMessage] = useState('')
   const [trackingIds, setTrackingIds] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -74,6 +76,34 @@ export default function CreateCampaign() {
     checkAuth()
   }, [router])
 
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      const storedTokens = localStorage.getItem('gmail_tokens');
+      if (storedTokens) {
+        const tokens = JSON.parse(storedTokens);
+        try {
+          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ tokens }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setUserInfo(data);
+          } else {
+            console.error('Failed to fetch user info');
+          }
+        } catch (error) {
+          console.error('Error fetching user info:', error);
+        }
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
+
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
@@ -86,7 +116,7 @@ export default function CreateCampaign() {
     }
 
     try {
-      const response = await fetch('https://6a34-192-122-237-12.ngrok-free.app/auth/send-email', {
+      const response = await fetch('https://emailapp-backend.onrender.com/auth/send-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -210,7 +240,13 @@ export default function CreateCampaign() {
                   <Bell className="h-5 w-5" />
                 </Button>
                 <Avatar>
-                  <AvatarFallback>JD</AvatarFallback>
+                  {userInfo && userInfo.picture ? (
+                    <AvatarImage src={userInfo.picture} alt={userInfo.name || userInfo.email} />
+                  ) : (
+                    <AvatarFallback>
+                      {userInfo ? getInitialsFromEmail(userInfo.email) : 'U'}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
               </div>
             </div>
