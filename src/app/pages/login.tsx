@@ -4,10 +4,21 @@ import React from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from 'next/navigation'
+import useAuth from "@/hooks/useAuth";
+
 
 export default function Login() {
   const router = useRouter()
+<<<<<<< Updated upstream
   console.log('Login');
+=======
+  const isLoggedIn = useAuth();
+  console.log("is this logged in ", isLoggedIn)
+  if (isLoggedIn) {
+    router.push('/dashboard')
+  }  
+ 
+>>>>>>> Stashed changes
 
   const handleGoogleLogin = async () => {
     try {

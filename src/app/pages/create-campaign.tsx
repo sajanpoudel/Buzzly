@@ -127,7 +127,11 @@ export default function CreateCampaign() {
     }
 
     try {
+<<<<<<< Updated upstream
       const response = await fetch('https://emailapp-backend.onrender.com/auth/send-email', {
+=======
+      const response = await fetch('https://1957-192-122-237-12.ngrok-free.app/auth/send-email', {
+>>>>>>> Stashed changes
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId // MongoDB's ObjectId type
+  email         String       @unique // User's email, should also be unique
+  name          String?      // User's full name (optional if you want to store it)
+  profilePic    String?      // URL to the user's profile picture (optional)
+  createdAt     DateTime     @default(now()) // Timestamp of when the user was created
+  updatedAt     DateTime     @updatedAt // Automatically update timestamp whenever data changes
+  campaigns     Campaign[]   // One user can have many campaigns
+}
+
+model Audiencefile {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId // MongoDB's ObjectId type
+  audienceName  String[]   // Array of audience names
+  audienceEmail String[]   // Array of audience emails
+  campaigns     Campaign[] // One audience file can be targeted by multiple campaigns
+}
+
+
+model Campaign {
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId // MongoDB's ObjectId type
+  campaignName    String         // Name of the campaign
+  campaignType    String         // Type of the campaign
+  endDate         DateTime?      // End date of the campaign
+  scheduleCampaign DateTime?     // Scheduled time for the campaign
+  recurringCampaign Boolean      // Whether the campaign is recurring or not
+  emailTemplate   String?        // Email template used for the campaign
+  subject         String         // Subject of the campaign email
+  emailBody       String         // Body content of the campaign email
+  targetAudience  String         // Target audience description
+  userId          String         @db.ObjectId  // Foreign key to the User model
+  audiencefileId  String         @db.ObjectId  // Foreign key to the Audiencefile model
+  user            User           @relation(fields: [userId], references: [id]) // Relation to User
+  audiencefile    Audiencefile   @relation(fields: [audiencefileId], references: [id]) // Relation to Audiencefile
+  createdAt       DateTime       @default(now()) // Timestamp when the campaign was created
+  updatedAt       DateTime       @updatedAt // Automatically update timestamp whenever data changes
+}
+
