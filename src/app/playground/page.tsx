@@ -95,32 +95,17 @@ export default function Playground() {
     setIsLoading(false)
   }
 
-  const handleCampaignInput = (field: keyof CampaignData, value: any) => {
-    setCampaignData(prev => ({ ...prev, [field]: value }));
+  const handleCampaignInput = (field: keyof CampaignData) => {
+    setCampaignData(prev => ({ ...prev, [field]: input }));
     let nextPrompt = '';
     let nextStep = currentStep + 1;
 
     switch (field) {
       case 'name':
-        nextPrompt = `Great! Your campaign name is "${value}". Now, let's choose a template for your campaign. Which type of template would you like to use?`;
-        break;
-      case 'template':
-        const template = value as EmailTemplate;
-        setCampaignData(prev => ({
-          ...prev,
-          subject: template.subject,
-          body: template.body
-        }));
-        nextPrompt = `Excellent choice! I've selected the "${template.name}" template for you. Here's a preview of the subject and body:
-
-Subject: ${template.subject}
-
-Body: ${template.body}
-
-Would you like to make any changes to this template?`;
+        nextPrompt = `Great! Your campaign name is "${input}". Now, what type of campaign is this? (e.g., newsletter, promotional, transactional)`;
         break;
       case 'type':
-        nextPrompt = `Excellent choice. For the "${campaignData.name}" ${value} campaign, what's the subject line?`;
+        nextPrompt = `Excellent choice. For the "${campaignData.name}" ${input} campaign, what's the subject line?`;
         break;
       case 'subject':
         nextPrompt = `Perfect subject line. Now, let's craft the body of your email. What message would you like to convey?`;
@@ -134,10 +119,11 @@ Would you like to make any changes to this template?`;
     }
 
     setMessages(prev => [...prev, 
-      { role: 'user', content: String(value) },
+      { role: 'user', content: input },
       { role: 'assistant', content: nextPrompt }
     ]);
     setCurrentStep(nextStep);
+    setInput(''); // Clear input after processing
   }
 
   const handleInputSubmit = (field: keyof CampaignData) => {
@@ -304,33 +290,21 @@ Would you like to make any changes to this template?`;
             <Input 
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleCampaignInput('name', input)}
+              onKeyPress={(e) => e.key === 'Enter' && handleCampaignInput('name')}
             />
-            <Button onClick={() => handleCampaignInput('name', input)}>Next</Button>
+            <Button onClick={() => handleCampaignInput('name')}>Next</Button>
           </div>
         );
       case 2:
         return (
           <div className="space-y-2">
-            <Label>Email Template</Label>
-            <Select 
-              value={campaignData.template?.id} 
-              onValueChange={(value) => {
-                const template = getTemplateById(value);
-                if (template) {
-                  handleCampaignInput('template', template);
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a template" />
-              </SelectTrigger>
-              <SelectContent>
-                {emailTemplates.map(template => (
-                  <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Campaign Type</Label>
+            <Input 
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleCampaignInput('type')}
+            />
+            <Button onClick={() => handleCampaignInput('type')}>Next</Button>
           </div>
         );
       case 3:
@@ -338,10 +312,11 @@ Would you like to make any changes to this template?`;
           <div className="space-y-2">
             <Label>Subject</Label>
             <Input 
-              value={campaignData.subject}
-              onChange={(e) => setCampaignData(prev => ({ ...prev, subject: e.target.value }))}
-              onBlur={() => handleCampaignInput('subject', campaignData.subject)}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleCampaignInput('subject')}
             />
+            <Button onClick={() => handleCampaignInput('subject')}>Next</Button>
           </div>
         );
       case 4:
@@ -349,11 +324,11 @@ Would you like to make any changes to this template?`;
           <div className="space-y-2">
             <Label>Email Body</Label>
             <Textarea 
-              value={campaignData.body}
-              onChange={(e) => setCampaignData(prev => ({ ...prev, body: e.target.value }))}
-              onBlur={() => handleCampaignInput('body', campaignData.body)}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
               rows={5}
             />
+            <Button onClick={() => handleCampaignInput('body')}>Next</Button>
           </div>
         );
       case 5:
