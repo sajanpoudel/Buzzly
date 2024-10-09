@@ -86,7 +86,7 @@ export const DatePicker = ({ value, onChange }: { value?: Date; onChange: (date:
           mode="single"
           selected={value}
           onSelect={onChange}
-          initialFocus
+        
         />
       </PopoverContent>
     </Popover>

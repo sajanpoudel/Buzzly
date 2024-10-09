@@ -15,10 +15,12 @@ import { checkAndSendScheduledCampaigns } from '@/utils/scheduledCampaignManager
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
 import { emailTemplates, getTemplateById, EmailTemplate } from '@/utils/emailTemplates'
-import { Send, Loader2, Calendar, X, Sparkles } from 'lucide-react'
+import { Send, Loader2, Calendar, X, Sparkles, Search, Bell, Moon, Sun, Menu } from 'lucide-react'
 import { handleUserInput } from '@/functionCalling/functionHandler'
 import * as PlaygroundUI from '@/components/PlaygroundUI'
 import { format } from 'date-fns'
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getInitialsFromEmail } from '@/utils/stringUtils'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -37,40 +39,74 @@ interface CampaignData {
 }
 
 export default function Playground() {
-  const [darkMode, setDarkMode] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Hello! I'm your AI assistant for email campaigns. How can I help you today?" }
-  ])
-  const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [currentAction, setCurrentAction] = useState<string | null>(null)
-  const [campaignData, setCampaignData] = useState<CampaignData>({
-    name: '',
-    type: '',
-    subject: '',
-    body: '',
-    recipients: [],
-    isScheduled: false,
-    template: null
-  })
-  const [currentStep, setCurrentStep] = useState(0)
-  const chatEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      checkAndSendScheduledCampaigns();
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, []);
-
+    const [darkMode, setDarkMode] = useState(false)
+    const [messages, setMessages] = useState<Message[]>([
+      { role: 'assistant', content: "Hello! I'm your AI assistant for email campaigns. How can I help you today?" }
+    ])
+    const [input, setInput] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
+    const [currentAction, setCurrentAction] = useState<string | null>(null)
+    const [campaignData, setCampaignData] = useState<CampaignData>({
+      name: '',
+      type: '',
+      subject: '',
+      body: '',
+      recipients: [],
+      isScheduled: false,
+      template: null
+    })
+    const [currentStep, setCurrentStep] = useState(0)
+    const chatEndRef = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+    const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null)
+  
+    const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
+  
+    useEffect(() => {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, [messages])
+  
+    useEffect(() => {
+      const interval = setInterval(() => {
+        checkAndSendScheduledCampaigns();
+      }, 60000); // Check every minute
+  
+      return () => clearInterval(interval);
+    }, []);
+  
+    useEffect(() => {
+      const fetchUserInfo = async () => {
+        const storedTokens = localStorage.getItem('gmail_tokens');
+        if (storedTokens) {
+          const tokens = JSON.parse(storedTokens);
+          try {
+            const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ tokens }),
+            });
+            if (response.ok) {
+              const data = await response.json();
+              setUserInfo(data);
+            } else {
+              console.error('Failed to fetch user info');
+            }
+          } catch (error) {
+            console.error('Error fetching user info:', error);
+          }
+        }
+      };
+  
+      fetchUserInfo();
+    }, []);
+  
+    const toggleDarkMode = () => {
+      setDarkMode(!darkMode)
+      document.documentElement.classList.toggle('dark')
+    }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
@@ -94,6 +130,9 @@ export default function Playground() {
 
     setIsLoading(false)
   }
+
+
+
 
   const handleCampaignInput = (field: keyof CampaignData) => {
     setCampaignData(prev => ({ ...prev, [field]: input }));
@@ -281,6 +320,8 @@ Would you like to make any changes to this template?`;
     ])
   }
 
+  
+
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 1:
@@ -381,35 +422,60 @@ Would you like to make any changes to this template?`;
         return null;
     }
   }
-
   return (
     <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
+      <header className="bg-white dark:bg-gray-800 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden">
+            <Menu className="h-6 w-6" />
+          </Button>
+          <h1 className="text-xl font-bold dark:text-white">AI Campaign Assistant</h1>
+          <div className="flex items-center space-x-4">
+            <div className="relative w-full lg:w-96 hidden lg:block">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Filter by name or description..." className="pl-8 w-full" />
+            </div>
+            <Button variant="ghost" size="icon" className="hidden lg:inline-flex">
+              <Bell className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
+              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
+            <Avatar>
+              {userInfo && userInfo.picture ? (
+                <AvatarImage src={userInfo.picture} alt={userInfo.name || userInfo.email} />
+              ) : (
+                <AvatarFallback>
+                  {userInfo ? getInitialsFromEmail(userInfo.email) : 'U'}
+                </AvatarFallback>
+              )}
+            </Avatar>
+          </div>
+        </div>
+      </header>
+
       <div className="flex flex-1 overflow-hidden">
         <Sidebar 
-          darkMode={darkMode} 
-          toggleDarkMode={() => setDarkMode(!darkMode)}
-          isMobileMenuOpen={false}
-          setIsMobileMenuOpen={() => {}}
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
           className="hidden lg:block"
         />
         
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-4 py-8 md:px-8 lg:px-12">
-            <div className="max-w-3xl mx-auto">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">AI Campaign Assistant</h1>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-                <div className="space-y-4 mb-4 max-h-[60vh] overflow-y-auto">
+        <main className="flex-1 p-4 lg:p-8 overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+          <div className="max-w-4xl mx-auto">
+            <Card className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+              <CardContent className="flex-1 flex flex-col p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4a5568 #2d3748' }}>
                   {messages.map((message, index) => (
                     <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[80%] p-4 rounded-lg ${
                         message.role === 'user' 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-100 dark:bg-gray-700'
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                       }`}>
-                        <p className={message.role === 'user' ? 'text-white' : 'text-gray-800 dark:text-gray-200'}>
-                          {message.content}
-                        </p>
+                        <p>{message.content}</p>
                       </div>
                     </div>
                   ))}
@@ -419,19 +485,24 @@ Would you like to make any changes to this template?`;
                 {renderCurrentStep()}
 
                 {currentStep === 0 && (
-                  <form onSubmit={handleSubmit} className="mt-4">
+                  <form onSubmit={handleSubmit} className="mt-auto">
                     <div className="relative">
-                      <Input
+                      <Textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Ask me anything about email campaigns..."
-                        className="pr-12 py-3 text-lg"
-                        onBlur={handleSubmit}
+                        className="pr-12 py-3 text-lg min-h-[100px] resize-none bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSubmit(e);
+                          }
+                        }}
                       />
                       <Button 
                         type="submit" 
                         disabled={isLoading} 
-                        className="absolute right-1 top-1 bottom-1"
+                        className="absolute right-2 bottom-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2"
                       >
                         {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                       </Button>
@@ -440,15 +511,32 @@ Would you like to make any changes to this template?`;
                 )}
 
                 {currentAction && (
-                  <Button onClick={handleCancel} className="mt-4" variant="destructive">
+                  <Button onClick={handleCancel} className="mt-4 bg-red-600 hover:bg-red-700 text-white">
                     <X className="mr-2 h-4 w-4" /> Cancel Current Action
                   </Button>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </main>
       </div>
+
+      {/* Mobile sidebar overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        ></div>
+      )}
+
+      {/* Mobile sidebar */}
+      <Sidebar 
+        darkMode={darkMode} 
+        toggleDarkMode={toggleDarkMode} 
+        className="lg:hidden"
+        isMobileMenuOpen={isMobileMenuOpen}
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
+      />
     </div>
   )
 }
