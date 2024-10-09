@@ -11,8 +11,9 @@ interface CampaignCreationData extends Omit<Campaign, 'id' | 'stats' | 'tracking
 
 export async function createCampaign(campaignData: CampaignCreationData): Promise<Campaign> {
   try {
-    console.log(`Current time: ${new Date().toISOString()}`);
-    console.log('Creating campaign with data:', campaignData);
+    const currentTime = new Date().toISOString();
+    console.log(`Current time: ${currentTime}`);
+    console.log('Creating campaign with data:', JSON.stringify(campaignData, null, 2));
 
     const newCampaign: Campaign = {
       id: Date.now().toString(),
@@ -33,14 +34,17 @@ export async function createCampaign(campaignData: CampaignCreationData): Promis
       },
       trackingIds: [],
       status: campaignData.isScheduled ? 'Scheduled' : 'Pending',
-      scheduledDateTime: campaignData.scheduledDateTime
+      scheduledDateTime: campaignData.scheduledDateTime,
+      userEmail: campaignData.userEmail // Add this line
     };
 
-    console.log(`Current time: ${new Date().toISOString()}`);
-    console.log('New campaign object:', newCampaign);
+    console.log('New campaign object:', JSON.stringify(newCampaign, null, 2));
+    console.log(`Is campaign scheduled: ${campaignData.isScheduled}`);
+    console.log(`Scheduled DateTime: ${campaignData.scheduledDateTime}`);
 
     if (campaignData.isScheduled) {
       saveToStore(newCampaign);
+      console.log(`Campaign ${newCampaign.id} saved as scheduled`);
       return newCampaign;
     }
 
@@ -62,7 +66,8 @@ export async function createCampaign(campaignData: CampaignCreationData): Promis
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     const result = await response.json();
@@ -73,13 +78,14 @@ export async function createCampaign(campaignData: CampaignCreationData): Promis
 
     saveToStore(newCampaign);
 
-    console.log(`Current time: ${new Date().toISOString()}`);
-    console.log('Campaign sent and saved:', newCampaign);
+    console.log(`Campaign sent and saved: ${JSON.stringify(newCampaign, null, 2)}`);
 
     return newCampaign;
   } catch (error) {
-    console.error(`Current time: ${new Date().toISOString()}`);
     console.error('Error creating campaign:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    }
     throw error;
   }
 }

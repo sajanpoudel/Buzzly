@@ -18,13 +18,19 @@ export interface Campaign {
   };
   trackingIds: string[];
   scheduledDateTime?: string; // Add this line
+  userEmail: string; // Add this line
 }
 
 const CAMPAIGNS_KEY = 'email_campaigns';
 
 export function saveCampaign(campaign: Campaign): void {
   const campaigns = getCampaigns();
-  campaigns.push(campaign);
+  const index = campaigns.findIndex(c => c.id === campaign.id);
+  if (index !== -1) {
+    campaigns[index] = campaign;
+  } else {
+    campaigns.push(campaign);
+  }
   localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(campaigns));
 }
 

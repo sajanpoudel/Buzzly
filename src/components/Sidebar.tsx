@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LayoutDashboard, MessageSquare, CreditCard, FileText, Users, Mail, Settings, ChevronDown, ChevronRight, MoreVertical, Sun, Moon, ChevronLeft, User } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, CreditCard, FileText, Users, Mail, Settings, ChevronDown, ChevronRight, MoreVertical, Sun, Moon, ChevronLeft, User, PlayCircle } from 'lucide-react'
 
 interface SidebarProps {
   darkMode: boolean;
@@ -133,6 +133,12 @@ const Sidebar: React.FC<SidebarProps> = ({ darkMode, toggleDarkMode, className, 
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Button>
+          <Link href="/playground">
+            <Button variant="ghost" className="w-full justify-start hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+              <PlayCircle className="mr-2 h-4 w-4" />
+              Playground
+            </Button>
+          </Link>
         </nav>
       </div>
       <div className="p-6 border-t border-gray-200 dark:border-gray-700">

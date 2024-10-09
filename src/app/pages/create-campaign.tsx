@@ -23,12 +23,7 @@ import SuccessModal from '@/components/SuccessModal'
 import { getInitialsFromEmail } from '@/utils/stringUtils';
 import { createCampaign } from '@/utils/campaignManager';
 import { checkAndSendScheduledCampaigns } from '@/utils/scheduledCampaignManager';
-
-const emailTemplates = [
-  { id: 1, name: "Welcome Email", subject: "Welcome to Our Service!", body: "Dear [Name],\n\nWelcome to our service! We're excited to have you on board..." },
-  { id: 2, name: "Monthly Newsletter", subject: "Your Monthly Update", body: "Hello [Name],\n\nHere's what's new this month..." },
-  { id: 3, name: "Product Announcement", subject: "Introducing Our Latest Product", body: "Hi [Name],\n\nWe're thrilled to announce our newest product..." },
-]
+import { emailTemplates, getTemplateById, EmailTemplate } from '@/utils/emailTemplates'
 
 export default function CreateCampaign() {
   const router = useRouter()
@@ -43,7 +38,7 @@ export default function CreateCampaign() {
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [targetAudience, setTargetAudience] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
-  const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
   const [audienceFile, setAudienceFile] = useState<File | null>(null)
   const [activeTab, setActiveTab] = useState('details')
   const [csvData, setCsvData] = useState<{ name: string; email: string }[]>([])
@@ -206,15 +201,6 @@ export default function CreateCampaign() {
       setIsModalOpen(true);
     }
   };
-
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplate(templateId)
-    const template = emailTemplates.find(t => t.id.toString() === templateId)
-    if (template) {
-      setSubject(template.subject)
-      setBody(template.body)
-    }
-  }
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -445,15 +431,20 @@ export default function CreateCampaign() {
                     <form className="space-y-6">
                       <div className="space-y-2">
                         <Label htmlFor="emailTemplate">Email Template</Label>
-                        <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
-                          <SelectTrigger id="emailTemplate">
+                        <Select value={selectedTemplate?.id} onValueChange={(value) => {
+                          const template = getTemplateById(value);
+                          setSelectedTemplate(template || null);
+                          if (template) {
+                            setSubject(template.subject);
+                            setBody(template.body);
+                          }
+                        }}>
+                          <SelectTrigger>
                             <SelectValue placeholder="Select email template" />
                           </SelectTrigger>
                           <SelectContent>
-                            {emailTemplates.map((template) => (
-                              <SelectItem key={template.id} value={template.id.toString()}>
-                                {template.name}
-                              </SelectItem>
+                            {emailTemplates.map(template => (
+                              <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
