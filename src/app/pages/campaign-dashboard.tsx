@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 import { getInitialsFromEmail } from '@/utils/stringUtils';
-import { getCampaigns, updateCampaignStats, Campaign } from '@/utils/campaignStore';
+import { getCampaigns, updateCampaignStats, Campaign } from '@/utils/campaignManager';
 import EmailTrackingStats from '@/components/EmailTrackingStats';
 
 const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({ campaign, onClick }) => (
@@ -108,15 +108,10 @@ export default function CampaignDashboard() {
       }
     };
 
-    const loadCampaigns = async () => {
+    const loadCampaigns = () => {
       const storedCampaigns = getCampaigns();
       setCampaigns(storedCampaigns);
       setIsLoading(false);
-
-      // Fetch and update stats for each campaign
-      for (const campaign of storedCampaigns) {
-        await updateCampaignStatsFromServer(campaign);
-      }
     };
 
     fetchUserInfo();

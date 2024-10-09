@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Moon, Bell, ChevronDown, LayoutDashboard, Mail, Users, Settings, MoreVertical, Calendar as CalendarIcon, Upload, Sparkles, Sun, ChevronLeft, ChevronRight, Menu } from 'lucide-react'
+import { Search, Moon, Bell, ChevronDown, LayoutDashboard, Mail, Users, Settings, MoreVertical, Calendar as CalendarIcon, Upload, Sparkles, Sun, ChevronLeft, ChevronRight, Menu, Clock } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,13 +14,15 @@ import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { format } from "date-fns"
+import { format, parseISO, startOfDay } from 'date-fns'
+import { toZonedTime, format as formatTZ } from 'date-fns-tz'
 import { enUS } from "date-fns/locale"
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import SuccessModal from '@/components/SuccessModal'
 import { getInitialsFromEmail } from '@/utils/stringUtils';
-import { saveCampaign, Campaign } from '@/utils/campaignStore';
+import { createCampaign } from '@/utils/campaignManager';
+import { checkAndSendScheduledCampaigns } from '@/utils/scheduledCampaignManager';
 
 const emailTemplates = [
   { id: 1, name: "Welcome Email", subject: "Welcome to Our Service!", body: "Dear [Name],\n\nWelcome to our service! We're excited to have you on board..." },
@@ -38,7 +40,6 @@ export default function CreateCampaign() {
   const [campaignType, setCampaignType] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [targetAudience, setTargetAudience] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
@@ -51,6 +52,11 @@ export default function CreateCampaign() {
   const [trackingIds, setTrackingIds] = useState<string[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
+  
+  // Scheduling state
+  const [isScheduled, setIsScheduled] = useState(false)
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined)
+  const [scheduledTime, setScheduledTime] = useState<string>('12:00')
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -106,6 +112,15 @@ export default function CreateCampaign() {
     fetchUserInfo();
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('Running scheduled check...');
+      checkAndSendScheduledCampaigns();
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
@@ -120,70 +135,72 @@ export default function CreateCampaign() {
     }
 
     // Check if all required fields are filled
-    if (!campaignName || !campaignType || !subject || !body || !startDate || !endDate || csvData.length === 0) {
+    if (!campaignName || !campaignType || !subject || !body || !endDate || csvData.length === 0) {
       setModalMessage('Please fill in all required fields and upload a CSV file.');
       setIsModalOpen(true);
       return;
     }
 
     try {
-      const response = await fetch('https://emailapp-backend.onrender.com/auth/send-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          recipients: csvData,
-          subject,
-          body,
-          userEmail,
-          tokens,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      let scheduledDateTime: string | undefined;
+      if (isScheduled && scheduledDate) {
+        const [hours, minutes] = scheduledTime.split(':').map(Number);
+        const scheduledDateTimeObj = new Date(scheduledDate);
+        scheduledDateTimeObj.setHours(hours, minutes, 0, 0);
+        scheduledDateTime = scheduledDateTimeObj.toISOString();
       }
 
-      const result = await response.json();
-      console.log('Emails sent successfully:', result);
-      
-      // Store tracking IDs
-      const newTrackingIds = result.info.map((item: any) => item.trackingId);
-      setTrackingIds(prevIds => {
-        const updatedIds = [...prevIds, ...newTrackingIds];
-        localStorage.setItem('trackingIds', JSON.stringify(updatedIds));
-        return updatedIds;
-      });
-
-      // Save campaign to local storage
-      const newCampaign: Campaign = {
-        id: Date.now().toString(),
+      console.log(`Current time: ${new Date().toISOString()}`);
+      console.log('Creating campaign with data:', {
         name: campaignName,
         type: campaignType,
         subject,
         body,
-        startDate: startDate?.toISOString() || '',
-        endDate: endDate?.toISOString() || '',
+        startDate: new Date().toISOString(),
+        endDate: endDate.toISOString(),
         isRecurring,
         targetAudience,
         recipients: csvData,
-        status: 'Sent',
-        stats: {
-          sent: result.info.length,
-          opened: 0,
-          clicked: 0,
-          converted: 0
-        },
-        trackingIds: newTrackingIds
-      };
-      saveCampaign(newCampaign);
+        userEmail,
+        tokens,
+        isScheduled,
+        scheduledDateTime,
+      });
 
-      setModalMessage(`Campaign "${campaignName}" created and ${result.info.length} emails sent successfully!`);
+      const newCampaign = await createCampaign({
+        name: campaignName,
+        type: campaignType,
+        subject,
+        body,
+        startDate: new Date().toISOString(),
+        endDate: endDate.toISOString(),
+        isRecurring,
+        targetAudience,
+        recipients: csvData,
+        userEmail,
+        tokens,
+        isScheduled,
+        scheduledDateTime,
+      });
+
+      console.log(`Current time: ${new Date().toISOString()}`);
+      console.log('Campaign created:', newCampaign);
+
+      setModalMessage(isScheduled && scheduledDateTime
+        ? `Campaign "${campaignName}" scheduled for ${new Date(scheduledDateTime).toLocaleString()}.`
+        : `Campaign "${campaignName}" created and ${newCampaign.stats.sent} emails sent successfully!`
+      );
       setIsModalOpen(true);
+
+      // Check for scheduled campaigns immediately after creating a new one
+      console.log(`Current time: ${new Date().toISOString()}`);
+      console.log('Checking for scheduled campaigns...');
+      await checkAndSendScheduledCampaigns();
+      console.log(`Current time: ${new Date().toISOString()}`);
+      console.log('Finished checking for scheduled campaigns');
+
     } catch (error) {
+      console.error(`Current time: ${new Date().toISOString()}`);
       console.error('Error saving campaign and sending emails:', error);
       setModalMessage(`Error creating campaign and sending emails: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsModalOpen(true);
@@ -233,9 +250,20 @@ export default function CreateCampaign() {
     }
   }
 
+  const handleDateSelect = (date: Date | undefined, dateType: 'end' | 'scheduled') => {
+    if (dateType === 'end') {
+      setEndDate(date);
+    } else {
+      setScheduledDate(date);
+    }
+  };
+
   if (!isAuthenticated) {
     return <div>Loading...</div> // Or a more sophisticated loading state
   }
+
+  // Use local time for today's date
+  const today = startOfDay(new Date());
 
   return (
     <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
@@ -325,27 +353,6 @@ export default function CreateCampaign() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="startDate">Start Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant={"outline"}
-                                className={`w-full justify-start text-left font-normal ${!startDate && "text-muted-foreground"}`}
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {startDate ? format(startDate, "PPP") : <span>Pick a start date</span>}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={startDate}
-                                onSelect={setStartDate}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <div className="space-y-2">
                           <Label htmlFor="endDate">End Date</Label>
                           <Popover>
                             <PopoverTrigger asChild>
@@ -361,7 +368,8 @@ export default function CreateCampaign() {
                               <Calendar
                                 mode="single"
                                 selected={endDate}
-                                onSelect={setEndDate}
+                                onSelect={(date) => handleDateSelect(date, 'end')}
+                                disabled={(date) => date < today}
                               />
                             </PopoverContent>
                           </Popover>
@@ -377,6 +385,59 @@ export default function CreateCampaign() {
                             <Label htmlFor="recurring">Enable recurring schedule</Label>
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="isScheduled">Schedule Campaign</Label>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="isScheduled"
+                              checked={isScheduled}
+                              onCheckedChange={setIsScheduled}
+                            />
+                            <Label htmlFor="isScheduled">Enable scheduling</Label>
+                          </div>
+                        </div>
+                        
+                        {isScheduled && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="scheduledDate">Scheduled Date</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant={"outline"}
+                                    className={`w-full justify-start text-left font-normal ${!scheduledDate && "text-muted-foreground"}`}
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={scheduledDate}
+                                    onSelect={(date) => {
+                                      setScheduledDate(date);
+                                      console.log('Selected date:', date); // Debug log
+                                    }}
+                                    disabled={(date) => date < today}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="scheduledTime">Scheduled Time</Label>
+                              <Input
+                                id="scheduledTime"
+                                type="time"
+                                value={scheduledTime}
+                                onChange={(e) => {
+                                  setScheduledTime(e.target.value);
+                                  console.log('Selected time:', e.target.value); // Debug log
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </form>
                   </TabsContent>
@@ -462,7 +523,7 @@ export default function CreateCampaign() {
 
                 <div className="flex justify-between mt-8">
                   {activeTab !== 'details' && (
-                    <Button variant="outline" onClick={() => setActiveTab(activeTab === 'content' ? 'details' : 'content')}>
+                    <Button variant="outline" onClick={handleBack}>
                       Back
                     </Button>
                   )}
@@ -471,7 +532,7 @@ export default function CreateCampaign() {
                       Create Campaign
                     </Button>
                   ) : (
-                    <Button onClick={() => setActiveTab(activeTab === 'details' ? 'content' : 'audience')} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
+                    <Button onClick={handleNext} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
                       Next
                     </Button>
                   )}

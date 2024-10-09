@@ -17,6 +17,7 @@ export interface Campaign {
     converted: number;
   };
   trackingIds: string[];
+  scheduledDateTime?: string; // Add this line
 }
 
 const CAMPAIGNS_KEY = 'email_campaigns';
@@ -32,7 +33,7 @@ export function getCampaigns(): Campaign[] {
   return campaignsJson ? JSON.parse(campaignsJson) : [];
 }
 
-export function updateCampaignStats(id: string, stats: { opened: number; clicked: number; converted: number }): void {
+export function updateCampaignStats(id: string, stats: Partial<Campaign['stats']>): void {
   const campaigns = getCampaigns();
   const campaignIndex = campaigns.findIndex(c => c.id === id);
   if (campaignIndex !== -1) {
