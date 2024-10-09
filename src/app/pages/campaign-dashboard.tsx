@@ -1,8 +1,9 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
-import { ArrowUpRight, Bell, Calendar, Clock, HelpCircle, LayoutDashboard, Mail, Moon, MoreVertical, Plus, Search, Menu, Sun } from 'lucide-react'
+import { ArrowUpRight, Bell, Calendar, Clock, HelpCircle, LayoutDashboard, Mail, Moon, MoreVertical, Plus, Search, Menu, Sun, Loader } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -12,128 +13,70 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 import { getInitialsFromEmail } from '@/utils/stringUtils';
+import { getCampaigns, updateCampaignStats, Campaign } from '@/utils/campaignStore';
+import EmailTrackingStats from '@/components/EmailTrackingStats';
 
-const campaignData = [
-  { 
-    id: 1,
-    icon: '🎁',
-    title: 'Special Offers for Loyal Customers',
-    description: 'Thank you for being our loyal customer! As a token of our appreciation, we...',
-    delivered: '5.72K',
-    opened: '60.5%',
-    clicked: '17.7%',
-    converted: '1.2%',
-    emails: 2,
-    time: 4,
-    status: 'Running'
-  },
-  { 
-    id: 2,
-    icon: '📝',
-    title: 'Customer Feedback Request',
-    description: 'We would love to hear your thoughts! Please take a moment to complete o...',
-    delivered: '4.82K',
-    opened: '34.5%',
-    clicked: '6.9%',
-    converted: '2.3%',
-    emails: 2,
-    time: 2,
-    status: 'Running'
-  },
-  { 
-    id: 3,
-    icon: '🚀',
-    title: 'Product Launch Announcement',
-    description: 'We are excited to introduce our latest product, Masterclass level! Enjoy inn...',
-    delivered: '8.65K',
-    opened: '72.5%',
-    clicked: '17.7%',
-    converted: '1.2%',
-    emails: 3,
-    time: 3,
-    status: 'Running'
-  },
-  { 
-    id: 4,
-    icon: '📰',
-    title: 'Weekly Newsletter',
-    description: 'Hi mate! Here is your weekly newsletter with the latest news, interesting art...',
-    delivered: '10.1K',
-    opened: '45.2%',
-    clicked: '12.8%',
-    converted: '0.9%',
-    emails: 5,
-    time: 5,
-    status: 'Running'
-  },
-]
-
-interface Campaign {
-  id: number;
-  icon: string;
-  title: string;
-  description: string;
-  delivered: string;
-  opened: string;
-  clicked: string;
-  converted: string;
-  emails: number;
-  time: number;
-  status: string;
-}
-
-const CampaignCard: React.FC<{ campaign: Campaign }> = ({ campaign }) => (
-  <Card className="mb-4">
+const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({ campaign, onClick }) => (
+  <Card className="mb-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={onClick}>
     <CardContent className="p-6">
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-4">
-          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-2xl">
-            {campaign.icon}
+          <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-2xl">
+            📧
           </div>
           <div>
-            <h3 className="text-lg font-semibold">{campaign.title}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{campaign.description}</p>
+            <h3 className="text-lg font-semibold">{campaign.name}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{campaign.type}</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
           <Mail className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-500">{campaign.emails}</span>
+          <span className="text-sm text-gray-500">{campaign.recipients.length}</span>
           <Clock className="h-4 w-4 text-gray-400 ml-2" />
-          <span className="text-sm text-gray-500">{campaign.time}</span>
-          <span className="ml-2 px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
+          <span className="text-sm text-gray-500">
+            {Math.ceil((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
+          </span>
+          <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
+            campaign.status === 'Running' ? 'text-green-800 bg-green-100' : 
+            campaign.status === 'Completed' ? 'text-blue-800 bg-blue-100' :
+            'text-yellow-800 bg-yellow-100'
+          }`}>
             {campaign.status}
           </span>
-          <Button variant="ghost" size="sm">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
         </div>
       </div>
       <div className="grid grid-cols-4 gap-4 mt-6">
         <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Delivered</p>
-          <p className="text-lg font-semibold">{campaign.delivered}</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Sent</p>
+          <p className="text-lg font-semibold">{campaign.stats.sent}</p>
         </div>
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Opened</p>
-          <p className="text-lg font-semibold">{campaign.opened}</p>
+          <p className="text-lg font-semibold">{campaign.stats.opened}</p>
         </div>
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Clicked</p>
-          <p className="text-lg font-semibold">{campaign.clicked}</p>
+          <p className="text-lg font-semibold">{campaign.stats.clicked}</p>
         </div>
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Converted</p>
-          <p className="text-lg font-semibold">{campaign.converted}</p>
+          <p className="text-lg font-semibold">{campaign.stats.converted}</p>
         </div>
+      </div>
+      <div className="mt-4 text-sm text-gray-500">
+        {new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}
       </div>
     </CardContent>
   </Card>
 )
 
 export default function CampaignDashboard() {
+  const router = useRouter()
   const [darkMode, setDarkMode] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
@@ -165,8 +108,57 @@ export default function CampaignDashboard() {
       }
     };
 
+    const loadCampaigns = async () => {
+      const storedCampaigns = getCampaigns();
+      setCampaigns(storedCampaigns);
+      setIsLoading(false);
+
+      // Fetch and update stats for each campaign
+      for (const campaign of storedCampaigns) {
+        await updateCampaignStatsFromServer(campaign);
+      }
+    };
+
     fetchUserInfo();
+    loadCampaigns();
   }, []);
+
+  const updateCampaignStatsFromServer = async (campaign: Campaign) => {
+    try {
+      const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ trackingIds: campaign.trackingIds })
+      });
+      if (response.ok) {
+        const stats = await response.json();
+        updateCampaignStats(campaign.id, stats);
+        setCampaigns(prevCampaigns => 
+          prevCampaigns.map(c => 
+            c.id === campaign.id ? { ...c, stats: { ...c.stats, ...stats } } : c
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error updating campaign stats:', error);
+    }
+  };
+
+  const handleCampaignClick = (campaign: Campaign) => {
+    router.push(`/campaign/${campaign.id}`);
+  };
+
+  const handleRefreshStats = async () => {
+    setIsLoading(true);
+    for (const campaign of campaigns) {
+      await updateCampaignStatsFromServer(campaign);
+    }
+    setIsLoading(false);
+  };
 
   return (
     <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
@@ -197,7 +189,7 @@ export default function CampaignDashboard() {
             <div className="flex justify-between items-center mb-8 flex-col lg:flex-row space-y-4 lg:space-y-0">
               <div className="relative w-full lg:w-96">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Filter by name or description..." className="pl-8 w-full" />
+                <Input placeholder="Search campaigns..." className="pl-8 w-full" />
               </div>
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" size="icon" className="hidden lg:inline-flex">
@@ -225,83 +217,44 @@ export default function CampaignDashboard() {
               <CardContent className="p-6">
                 <div className="flex flex-col lg:flex-row justify-between items-center">
                   <div className="mb-4 lg:mb-0">
-                    <h2 className="text-2xl font-bold mb-2">Unlock the Power of Our New Campaign Management Dashboard!</h2>
-                    <p className="text-lg">Introducing our latest innovation – a revolutionary dashboard designed to elevate your campaign management.</p>
+                    <h2 className="text-2xl font-bold mb-2">Welcome to Your Campaign Dashboard!</h2>
+                    <p className="text-lg">Track and optimize your email campaigns with ease.</p>
                   </div>
-                  <Button variant="secondary" size="lg" className="w-full lg:w-auto">Try the New Features Now!</Button>
+                  <Link href="/create-campaign">
+                    <Button variant="secondary" size="lg" className="w-full lg:w-auto">
+                      <Plus className="mr-2 h-4 w-4" /> Create New Campaign
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="flex justify-between items-center mb-6 flex-col lg:flex-row space-y-4 lg:space-y-0">
-              <h1 className="text-2xl font-bold dark:text-white">Campaigns</h1>
-              <Link href="/create-campaign">
-                <Button className="w-full lg:w-auto">
-                  <Plus className="mr-2 h-4 w-4" /> Create Campaign
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold dark:text-white">Your Campaigns</h2>
+                <Button onClick={handleRefreshStats} disabled={isLoading}>
+                  {isLoading ? <Loader className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Refresh Stats
                 </Button>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Triggered by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {/* Add more options as needed */}
-                </SelectContent>
-              </Select>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Campaign status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {/* Add more options as needed */}
-                </SelectContent>
-              </Select>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filters by tags..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {/* Add more options as needed */}
-                </SelectContent>
-              </Select>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {/* Add more options as needed */}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Tabs defaultValue="active" className="mb-6">
-              <TabsList className="w-full justify-start overflow-x-auto">
-                <TabsTrigger value="active">Active <span className="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">24</span></TabsTrigger>
-                <TabsTrigger value="completed">Completed <span className="ml-2 px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">179</span></TabsTrigger>
-                <TabsTrigger value="draft">Draft <span className="ml-2 px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">3</span></TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <div className="flex justify-between items-center mb-4 flex-col lg:flex-row space-y-4 lg:space-y-0">
-              <h2 className="text-xl font-semibold dark:text-white">24 Campaigns</h2>
-              <div className="flex items-center space-x-2 flex-wrap justify-center lg:justify-start">
-                <HelpCircle className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-500 dark:text-gray-400">Metrics definitions</span>
-                <Calendar className="h-4 w-4 text-gray-400 ml-4" />
-                <span className="text-sm text-gray-500 dark:text-gray-400">19 June 2024 - 27 June 2024</span>
               </div>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-40">
+                  <Loader className="h-8 w-8 animate-spin text-purple-500" />
+                </div>
+              ) : campaigns.length > 0 ? (
+                campaigns.map(campaign => (
+                  <CampaignCard 
+                    key={campaign.id} 
+                    campaign={campaign} 
+                    onClick={() => handleCampaignClick(campaign)}
+                  />
+                ))
+              ) : (
+                <p className="text-center text-gray-500 dark:text-gray-400">No campaigns found. Create your first campaign now!</p>
+              )}
             </div>
 
-            {campaignData.map(campaign => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
-            ))}
+            {/* Add more sections here for campaign analytics, performance charts, etc. */}
           </div>
         </main>
       </div>

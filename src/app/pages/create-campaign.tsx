@@ -20,6 +20,7 @@ import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import SuccessModal from '@/components/SuccessModal'
 import { getInitialsFromEmail } from '@/utils/stringUtils';
+import { saveCampaign, Campaign } from '@/utils/campaignStore';
 
 const emailTemplates = [
   { id: 1, name: "Welcome Email", subject: "Welcome to Our Service!", body: "Dear [Name],\n\nWelcome to our service! We're excited to have you on board..." },
@@ -37,7 +38,8 @@ export default function CreateCampaign() {
   const [campaignType, setCampaignType] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
-  const [sendDate, setSendDate] = useState<Date | undefined>(undefined)
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [targetAudience, setTargetAudience] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState('')
@@ -112,6 +114,15 @@ export default function CreateCampaign() {
   const handleSaveCampaign = async () => {
     if (!isAuthenticated) {
       console.error('User is not authenticated');
+      setModalMessage('You must be authenticated to create a campaign.');
+      setIsModalOpen(true);
+      return;
+    }
+
+    // Check if all required fields are filled
+    if (!campaignName || !campaignType || !subject || !body || !startDate || !endDate || csvData.length === 0) {
+      setModalMessage('Please fill in all required fields and upload a CSV file.');
+      setIsModalOpen(true);
       return;
     }
 
@@ -137,7 +148,7 @@ export default function CreateCampaign() {
       }
 
       const result = await response.json();
-      console.log('Campaign saved and emails sent:', result);
+      console.log('Emails sent successfully:', result);
       
       // Store tracking IDs
       const newTrackingIds = result.info.map((item: any) => item.trackingId);
@@ -146,13 +157,35 @@ export default function CreateCampaign() {
         localStorage.setItem('trackingIds', JSON.stringify(updatedIds));
         return updatedIds;
       });
-      
-      // Show success modal
-      setModalMessage(`Emails sent successfully to ${result.info.length} recipients!`)
-      setIsModalOpen(true)
+
+      // Save campaign to local storage
+      const newCampaign: Campaign = {
+        id: Date.now().toString(),
+        name: campaignName,
+        type: campaignType,
+        subject,
+        body,
+        startDate: startDate?.toISOString() || '',
+        endDate: endDate?.toISOString() || '',
+        isRecurring,
+        targetAudience,
+        recipients: csvData,
+        status: 'Sent',
+        stats: {
+          sent: result.info.length,
+          opened: 0,
+          clicked: 0,
+          converted: 0
+        },
+        trackingIds: newTrackingIds
+      };
+      saveCampaign(newCampaign);
+
+      setModalMessage(`Campaign "${campaignName}" created and ${result.info.length} emails sent successfully!`);
+      setIsModalOpen(true);
     } catch (error) {
       console.error('Error saving campaign and sending emails:', error);
-      setModalMessage('Error sending emails. Please try again.');
+      setModalMessage(`Error creating campaign and sending emails: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsModalOpen(true);
     }
   };
@@ -228,7 +261,7 @@ export default function CreateCampaign() {
         />
         
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
           <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Campaign</h1>
@@ -292,46 +325,43 @@ export default function CreateCampaign() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="sendDate">Send Date</Label>
+                          <Label htmlFor="startDate">Start Date</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant={"outline"}
-                                className={`w-full justify-start text-left font-normal ${!sendDate && "text-muted-foreground"}`}
+                                className={`w-full justify-start text-left font-normal ${!startDate && "text-muted-foreground"}`}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {sendDate ? format(sendDate, "PPP") : <span>Pick a date</span>}
+                                {startDate ? format(startDate, "PPP") : <span>Pick a start date</span>}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
                               <Calendar
                                 mode="single"
-                                selected={sendDate}
-                                onSelect={setSendDate}
-                                locale={enUS}
-                                className="border-none"
-                                classNames={{
-                                  months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                                  month: "space-y-4",
-                                  caption: "flex justify-center pt-1 relative items-center",
-                                  caption_label: "text-sm font-medium",
-                                  nav: "space-x-1 flex items-center",
-                                  nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute",
-                                  nav_button_previous: "left-1",
-                                  nav_button_next: "right-1",
-                                  table: "w-full border-collapse space-y-1",
-                                  head_row: "flex",
-                                  head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-                                  row: "flex w-full mt-2",
-                                  cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                                  day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
-                                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                                  day_today: "bg-accent text-accent-foreground",
-                                  day_outside: "text-muted-foreground opacity-50",
-                                  day_disabled: "text-muted-foreground opacity-50",
-                                  day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                                  day_hidden: "invisible",
-                                }}
+                                selected={startDate}
+                                onSelect={setStartDate}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endDate">End Date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant={"outline"}
+                                className={`w-full justify-start text-left font-normal ${!endDate && "text-muted-foreground"}`}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {endDate ? format(endDate, "PPP") : <span>Pick an end date</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={endDate}
+                                onSelect={setEndDate}
                               />
                             </PopoverContent>
                           </Popover>
@@ -432,16 +462,16 @@ export default function CreateCampaign() {
 
                 <div className="flex justify-between mt-8">
                   {activeTab !== 'details' && (
-                    <Button variant="outline" onClick={handleBack}>
+                    <Button variant="outline" onClick={() => setActiveTab(activeTab === 'content' ? 'details' : 'content')}>
                       Back
                     </Button>
                   )}
                   {activeTab === 'audience' ? (
                     <Button onClick={handleSaveCampaign} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
-                      Schedule Campaign
+                      Create Campaign
                     </Button>
                   ) : (
-                    <Button onClick={handleNext} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
+                    <Button onClick={() => setActiveTab(activeTab === 'details' ? 'content' : 'audience')} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
                       Next
                     </Button>
                   )}
@@ -451,6 +481,7 @@ export default function CreateCampaign() {
           </div>
         </main>
       </div>
+
       <SuccessModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
