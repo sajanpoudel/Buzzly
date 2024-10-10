@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { handleKeyboardShortcut, SHORTCUTS } from '@/utils/keyboardShortcuts'
 import { generateTemplate, saveTemplate } from '@/functionCalling/templateFunctions';
+import { Switch } from "@/components/ui/switch"
 
 interface Message {
   role: 'user' | 'assistant'
@@ -47,6 +48,200 @@ interface TemplateData {
   subject: string;
   body: string;
 }
+
+const RightPanel = ({ 
+  isCreatingCampaign, 
+  isCreatingTemplate, 
+  campaignData, 
+  templateData, 
+  currentStep,
+  handleInputSubmit,
+  handleTemplateInput,
+  handleCancel,
+  setCampaignData,
+  setTemplateData
+}: {
+  isCreatingCampaign: boolean;
+  isCreatingTemplate: boolean;
+  campaignData: CampaignData;
+  templateData: TemplateData;
+  currentStep: number;
+  handleInputSubmit: (field: keyof CampaignData) => void;
+  handleTemplateInput: (field: keyof TemplateData) => void;
+  handleCancel: () => void;
+  setCampaignData: React.Dispatch<React.SetStateAction<CampaignData>>;
+  setTemplateData: React.Dispatch<React.SetStateAction<TemplateData>>;
+}) => {
+  const [showPreview, setShowPreview] = useState(false);
+
+  const renderButtons = (onNext: () => void) => (
+    <div className="flex space-x-4 mt-4">
+      <Button 
+        onClick={onNext}
+        className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200"
+      >
+        Next
+      </Button>
+      <Button 
+        onClick={handleCancel}
+        className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200"
+      >
+        Cancel
+      </Button>
+    </div>
+  );
+
+  const renderPreview = () => {
+    if (isCreatingCampaign) {
+      return (
+        <div className="space-y-4">
+          <h3 className="font-semibold">Campaign Preview</h3>
+          <p><strong>Name:</strong> {campaignData.name}</p>
+          <p><strong>Type:</strong> {campaignData.type}</p>
+          <p><strong>Subject:</strong> {campaignData.subject}</p>
+          <div>
+            <strong>Body:</strong>
+            <p className="whitespace-pre-wrap">{campaignData.body}</p>
+          </div>
+        </div>
+      );
+    } else if (isCreatingTemplate) {
+      return (
+        <div className="space-y-4">
+          <h3 className="font-semibold">Template Preview</h3>
+          <p><strong>Name:</strong> {templateData.name}</p>
+          <p><strong>Subject:</strong> {templateData.subject}</p>
+          <div>
+            <strong>Body:</strong>
+            <p className="whitespace-pre-wrap">{templateData.body}</p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const renderForm = () => {
+    if (isCreatingCampaign) {
+      switch (currentStep) {
+        case 1:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.CampaignNameInput 
+                value={campaignData.name}
+                onChange={(value) => setCampaignData(prev => ({ ...prev, name: value }))}
+              />
+              {renderButtons(() => handleInputSubmit('name'))}
+            </div>
+          );
+        case 2:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.CampaignTypeSelect
+                value={campaignData.type}
+                onChange={(value) => {
+                  setCampaignData(prev => ({ ...prev, type: value }));
+                  handleInputSubmit('type');
+                }}
+                options={emailTemplates.map(template => ({
+                  value: template.id,
+                  label: template.name
+                }))}
+              />
+            </div>
+          );
+        case 3:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.SubjectInput
+                value={campaignData.subject}
+                onChange={(value) => setCampaignData(prev => ({ ...prev, subject: value }))}
+              />
+              {renderButtons(() => handleInputSubmit('subject'))}
+            </div>
+          );
+        case 4:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.BodyTextarea
+                value={campaignData.body}
+                onChange={(value) => setCampaignData(prev => ({ ...prev, body: value }))}
+              />
+              {renderButtons(() => handleInputSubmit('body'))}
+            </div>
+          );
+        case 5:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.RecipientFileUpload
+                onChange={(file) => {
+                  // Handle file upload logic here
+                  if (file) {
+                    // Process the file and update campaignData.recipients
+                    // For now, we'll just log the file name
+                    console.log(`File uploaded: ${file.name}`);
+                  }
+                  handleInputSubmit('recipients');
+                }}
+              />
+            </div>
+          );
+        default:
+          return null;
+      }
+    } else if (isCreatingTemplate) {
+      switch (currentStep) {
+        case 1:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.TemplateDescriptionInput 
+                value={templateData.description}
+                onChange={(value) => setTemplateData(prev => ({ ...prev, description: value }))}
+              />
+              {renderButtons(() => handleTemplateInput('description'))}
+            </div>
+          );
+        case 2:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.SubjectInput
+                value={templateData.subject}
+                onChange={(value) => setTemplateData(prev => ({ ...prev, subject: value }))}
+              />
+              <PlaygroundUI.BodyTextarea
+                value={templateData.body}
+                onChange={(value) => setTemplateData(prev => ({ ...prev, body: value }))}
+              />
+              <PlaygroundUI.TemplateNameInput
+                value={templateData.name}
+                onChange={(value) => setTemplateData(prev => ({ ...prev, name: value }))}
+              />
+              {renderButtons(() => handleTemplateInput('name'))}
+            </div>
+          );
+      }
+    }
+    return null;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold">
+          {isCreatingCampaign ? 'Create Campaign' : 'Create Template'}
+        </h2>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm">Preview</span>
+          <Switch
+            checked={showPreview}
+            onCheckedChange={setShowPreview}
+          />
+        </div>
+      </div>
+      {showPreview ? renderPreview() : renderForm()}
+    </div>
+  );
+};
 
 export default function EnhancedEmailCampaignGenerator() {
   const [darkMode, setDarkMode] = useState(false)
@@ -240,24 +435,7 @@ export default function EnhancedEmailCampaignGenerator() {
         nextPrompt = `Great! Your campaign name is "${value}". Now, let's choose the type of campaign. What type of campaign would you like to create?`;
         break;
       case 'type':
-        const template = emailTemplates.find(t => t.id === value);
-        if (template) {
-          setCampaignData(prev => ({
-            ...prev,
-            subject: template.subject,
-            body: template.body,
-            template: template
-          }));
-          nextPrompt = `Excellent choice. I've selected the "${template.name}" template for your "${campaignData.name}" campaign. Here's a preview of the subject and body:
-
-Subject: ${template.subject}
-
-Body: ${template.body}
-
-Would you like to make any changes to this template?`;
-        } else {
-          nextPrompt = `Excellent choice. For the "${campaignData.name}" ${value} campaign, what's the subject line?`;
-        }
+        nextPrompt = `Excellent choice. For the "${campaignData.name}" ${value} campaign, what's the subject line?`;
         break;
       case 'subject':
         nextPrompt = "Great! Now, let's craft the body of your email. What message would you like to convey?";
@@ -267,6 +445,9 @@ Would you like to make any changes to this template?`;
         break;
       case 'recipients':
         nextPrompt = "Great! Your recipient list has been uploaded. Would you like to schedule this campaign or send it right away?";
+        nextStep = 0; // Return to chat mode for scheduling options
+        setIsFormVisible(false);
+        setIsCreatingCampaign(false);
         break;
       default:
         nextPrompt = "What would you like to do next?";
@@ -459,144 +640,6 @@ Would you like to make any changes to this template?`;
     setCurrentStep(nextStep);
   };
 
-  const renderCurrentStep = () => {
-    const renderButtons = (onNext: () => void) => (
-      <div className="flex space-x-4 mt-4">
-        <Button 
-          onClick={onNext}
-          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200"
-        >
-          Next
-        </Button>
-        <Button 
-          onClick={handleCancel}
-          className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200"
-        >
-          Cancel
-        </Button>
-      </div>
-    );
-
-    switch (currentStep) {
-      case 1:
-        return isCreatingTemplate ? (
-          <div className="space-y-4 w-full max-w-md mx-auto">
-            <PlaygroundUI.TemplateDescriptionInput 
-              value={templateData.description}
-              onChange={(value) => setTemplateData(prev => ({ ...prev, description: value }))}
-            />
-            {renderButtons(() => handleTemplateInput('description'))}
-          </div>
-        ) : (
-          <div className="space-y-4 w-full max-w-md mx-auto">
-            <PlaygroundUI.CampaignNameInput 
-              value={campaignData.name}
-              onChange={(value) => setCampaignData(prev => ({ ...prev, name: value }))}
-            />
-            {renderButtons(() => handleInputSubmit('name'))}
-          </div>
-        );
-      case 2:
-        return isCreatingTemplate ? (
-          <div className="space-y-4 w-full max-w-md mx-auto">
-            <PlaygroundUI.SubjectInput
-              value={templateData.subject}
-              onChange={(value) => setTemplateData(prev => ({ ...prev, subject: value }))}
-            />
-            <PlaygroundUI.BodyTextarea
-              value={templateData.body}
-              onChange={(value) => setTemplateData(prev => ({ ...prev, body: value }))}
-            />
-            <PlaygroundUI.TemplateNameInput
-              value={templateData.name}
-              onChange={(value) => setTemplateData(prev => ({ ...prev, name: value }))}
-            />
-            {renderButtons(() => handleTemplateInput('name'))}
-          </div>
-        ) : (
-          <div className="space-y-4 w-full max-w-md mx-auto">
-            <PlaygroundUI.CampaignTypeSelect
-              value={campaignData.type}
-              onChange={(value) => {
-                setCampaignData(prev => ({ ...prev, type: value }));
-                handleInputSubmit('type');
-              }}
-              options={emailTemplates.map(template => ({
-                value: template.id,
-                label: template.name
-              }))}
-            />
-          </div>
-        );
-      case 3:
-        return (
-          <div className="space-y-4 w-full max-w-md mx-auto">
-            <PlaygroundUI.SubjectInput
-              value={campaignData.subject}
-              onChange={(value) => setCampaignData(prev => ({ ...prev, subject: value }))}
-            />
-            {renderButtons(() => handleInputSubmit('subject'))}
-          </div>
-        );
-      case 4:
-        return (
-          <div className="space-y-4 w-full max-w-2xl mx-auto">
-            <PlaygroundUI.BodyTextarea
-              value={campaignData.body}
-              onChange={(value) => setCampaignData(prev => ({ ...prev, body: value }))}
-            />
-            {renderButtons(() => handleInputSubmit('body'))}
-          </div>
-        );
-      case 5:
-        return (
-          <div className="space-y-4 w-full max-w-md mx-auto">
-            <PlaygroundUI.RecipientFileUpload onChange={handleFileUpload} />
-            {renderButtons(() => handleInputSubmit('recipients'))}
-          </div>
-        );
-      case 6:
-        return (
-          <div className="space-y-4 w-full max-w-md mx-auto">
-            <Button onClick={() => handleScheduleCampaign('now')} className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">Send Now</Button>
-            <Button onClick={() => handleScheduleCampaign('tomorrow')} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">Tomorrow at 10:00 AM</Button>
-            <Button onClick={() => handleScheduleCampaign('in2days')} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">In 2 days at 10:00 AM</Button>
-            <Button onClick={() => handleScheduleCampaign('custom')} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">Custom Date & Time</Button>
-            {renderButtons(handleCancel)}
-          </div>
-        );
-      case 7:
-        return (
-          <div className="space-y-4 w-full max-w-md mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <PlaygroundUI.DatePicker 
-                value={campaignData.scheduledDateTime} 
-                onChange={(date) => setCampaignData(prev => ({ ...prev, scheduledDateTime: date }))} 
-              />
-              <PlaygroundUI.TimePicker 
-                value={campaignData.scheduledDateTime && !isNaN(campaignData.scheduledDateTime.getTime()) 
-                  ? format(campaignData.scheduledDateTime, 'HH:mm') 
-                  : '10:00'
-                } 
-                onChange={(time) => {
-                  const [hours, minutes] = time.split(':').map(Number);
-                  const newDate = new Date(campaignData.scheduledDateTime || new Date());
-                  newDate.setHours(hours, minutes);
-                  setCampaignData(prev => ({ ...prev, scheduledDateTime: newDate }));
-                }} 
-              />
-            </div>
-            <div className="flex space-x-4">
-              <Button onClick={handleCustomDateTimeSubmit} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">Confirm Schedule</Button>
-              <Button onClick={handleCancel} className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">Cancel</Button>
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
-  }
-
   return (
     <div 
       className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}
@@ -657,68 +700,71 @@ Would you like to make any changes to this template?`;
               </div>
             </div>
             
-            <div className="flex flex-col overflow-hidden text-foreground rounded-lg">
-              <div className="flex-1 flex flex-col p-6 space-y-6">
-                <div className="flex-1 overflow-y-auto space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--scrollbar) var(--scrollbar-bg)' }}>
-                  {messages.map((message, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-[80%] p-4 rounded-lg ${
-                        message.role === 'user' 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'bg-background text-muted-foreground'
-                      }`}>
-                        <p className="text-sm">{message.content}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-                
-                <AnimatePresence>
-                  {isFormVisible && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="w-full max-w-2xl mx-auto"
-                    >
-                      {renderCurrentStep()}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {currentStep === 0 && (
-                  <form onSubmit={handleSubmit} className="mt-auto w-full">
-                    <div className="relative">
-                      <Textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Ask me anything about email campaigns..."
-                        className="pr-12 py-3 text-sm min-h-[100px] resize-none bg-background border-input focus:border-ring focus:ring-ring rounded-lg w-full"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSubmit(e);
-                          }
-                        }}
-                      />
-                      <Button 
-                        type="submit" 
-                        disabled={isLoading} 
-                        className="absolute right-2 bottom-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-2 transition-colors duration-200"
+            <div className="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6">
+              <div className="flex-1 flex flex-col overflow-hidden text-foreground rounded-lg bg-white dark:bg-gray-800 shadow-lg">
+                <div className="flex-1 flex flex-col p-6 space-y-6">
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--scrollbar) var(--scrollbar-bg)' }}>
+                    {messages.map((message, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
-                        {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                      </Button>
-                    </div>
-                  </form>
-                )}
+                        <div className={`max-w-[80%] p-4 rounded-lg ${
+                          message.role === 'user' 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'bg-background text-muted-foreground'
+                        }`}>
+                          <p className="text-sm">{message.content}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {currentStep === 0 && (
+                    <form onSubmit={handleSubmit} className="mt-auto w-full">
+                      <div className="relative">
+                        <Textarea
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
+                          placeholder="Ask me anything about email campaigns..."
+                          className="pr-12 py-3 text-sm min-h-[100px] resize-none bg-background border-input focus:border-ring focus:ring-ring rounded-lg w-full"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSubmit(e);
+                            }
+                          }}
+                        />
+                        <Button 
+                          type="submit" 
+                          disabled={isLoading} 
+                          className="absolute right-2 bottom-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-2 transition-colors duration-200"
+                        >
+                          {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              <div className="w-full lg:w-1/3 flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 overflow-y-auto">
+                <RightPanel 
+                  isCreatingCampaign={isCreatingCampaign}
+                  isCreatingTemplate={isCreatingTemplate}
+                  campaignData={campaignData}
+                  templateData={templateData}
+                  currentStep={currentStep}
+                  handleInputSubmit={handleInputSubmit}
+                  handleTemplateInput={handleTemplateInput}
+                  handleCancel={handleCancel}
+                  setCampaignData={setCampaignData}
+                  setTemplateData={setTemplateData}
+                />
               </div>
             </div>
           </div>
