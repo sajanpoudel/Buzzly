@@ -25,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { handleKeyboardShortcut, SHORTCUTS } from '@/utils/keyboardShortcuts'
 import { generateTemplate, saveTemplate } from '@/functionCalling/templateFunctions';
 import { Switch } from "@/components/ui/switch"
+import { CampaignCreationData } from '@/types/campaign';  // Adjust the import path as necessary
 
 interface Message {
   role: 'user' | 'assistant'
@@ -40,6 +41,7 @@ interface CampaignData {
   isScheduled: boolean
   scheduledDateTime?: Date
   template: EmailTemplate | null
+  isSingleEmail?: boolean; // Add this line
 }
 
 interface TemplateData {
@@ -47,6 +49,14 @@ interface TemplateData {
   description: string;
   subject: string;
   body: string;
+}
+
+interface EmailData {
+  template: EmailTemplate | null;
+  subject: string;
+  body: string;
+  recipients: { name: string; email: string }[];
+  scheduledDateTime?: Date;
 }
 
 const InfinityLoader = () => (
@@ -108,6 +118,11 @@ const RightPanel = ({
   handleScheduleCampaign,
   handleCustomDateTimeSubmit,
   handleFileUpload,
+  isCreatingEmail,
+  emailData,
+  setEmailData,
+  handleEmailInput,
+  setCurrentStep,
 }: {
   isCreatingCampaign: boolean;
   isCreatingTemplate: boolean;
@@ -124,6 +139,11 @@ const RightPanel = ({
   handleScheduleCampaign: (scheduleType: 'now' | 'tomorrow' | 'in2days' | 'custom') => void;
   handleCustomDateTimeSubmit: () => void;
   handleFileUpload: (file: File | null) => void;
+  isCreatingEmail: boolean;
+  emailData: EmailData;
+  setEmailData: React.Dispatch<React.SetStateAction<EmailData>>;
+  handleEmailInput: (field: keyof EmailData) => void;
+  setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
 }) => {
   const [showPreview, setShowPreview] = useState(false);
 
@@ -312,6 +332,98 @@ const RightPanel = ({
             </div>
           );
       }
+    } else if (isCreatingEmail) {
+      switch (currentStep) {
+        case 1:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.TemplateSelect
+                value={emailData.template?.id || '_scratch'}
+                onChange={(value) => {
+                  if (value === '_scratch') {
+                    setEmailData(prev => ({ ...prev, template: null }));
+                  } else {
+                    const selectedTemplate = emailTemplates.find(t => t.id === value);
+                    setEmailData(prev => ({ ...prev, template: selectedTemplate || null }));
+                  }
+                  handleEmailInput('template');
+                }}
+                options={emailTemplates.map(template => ({
+                  value: template.id,
+                  label: template.name
+                }))}
+              />
+              {renderButtons(() => handleEmailInput('template'))}
+            </div>
+          );
+        case 2:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.SubjectInput
+                value={emailData.subject}
+                onChange={(value) => setEmailData(prev => ({ ...prev, subject: value }))}
+              />
+              {renderButtons(() => handleEmailInput('subject'))}
+            </div>
+          );
+        case 3:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.BodyTextarea
+                value={emailData.body}
+                onChange={(value) => setEmailData(prev => ({ ...prev, body: value }))}
+              />
+              {renderButtons(() => handleEmailInput('body'))}
+            </div>
+          );
+        case 4:
+          return (
+            <div className="space-y-4 w-full">
+              <PlaygroundUI.RecipientInput
+                recipients={emailData.recipients}
+                onAdd={(recipient) => setEmailData(prev => ({ ...prev, recipients: [...prev.recipients, recipient] }))}
+                onRemove={(index) => setEmailData(prev => ({ ...prev, recipients: prev.recipients.filter((_, i) => i !== index) }))}
+              />
+              {renderButtons(() => handleEmailInput('recipients'))}
+            </div>
+          );
+        case 5:
+          return (
+            <div className="space-y-4 w-full">
+              <Button onClick={() => handleEmailInput('scheduledDateTime')} className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center">
+                <InfinityLoader />
+                <span className="ml-2">Send Now</span>
+              </Button>
+              <Button onClick={() => setCurrentStep(6)} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center">
+                <InfinityLoader />
+                <span className="ml-2">Schedule</span>
+              </Button>
+            </div>
+          );
+        case 6:
+          return (
+            <div className="space-y-4 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <PlaygroundUI.DatePicker 
+                  value={emailData.scheduledDateTime} 
+                  onChange={(date) => setEmailData(prev => ({ ...prev, scheduledDateTime: date }))} 
+                />
+                <PlaygroundUI.TimePicker 
+                  value={emailData.scheduledDateTime ? format(emailData.scheduledDateTime, 'HH:mm') : '10:00'} 
+                  onChange={(time) => {
+                    const [hours, minutes] = time.split(':').map(Number);
+                    const newDate = new Date(emailData.scheduledDateTime || new Date());
+                    newDate.setHours(hours, minutes);
+                    setEmailData(prev => ({ ...prev, scheduledDateTime: newDate }));
+                  }} 
+                />
+              </div>
+              <Button onClick={() => handleEmailInput('scheduledDateTime')} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">Confirm Schedule</Button>
+            </div>
+          );
+        default:
+          return null;
+      }
     }
     return null;
   };
@@ -357,9 +469,9 @@ const RightPanel = ({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">
-          {isCreatingCampaign ? 'Create Campaign' : isCreatingTemplate ? 'Create Template' : 'Assistant'}
+          {isCreatingCampaign ? 'Create Campaign' : isCreatingTemplate ? 'Create Template' : isCreatingEmail ? 'Send Email' : 'Assistant'}
         </h2>
-        {(isCreatingCampaign || isCreatingTemplate) && (
+        {(isCreatingCampaign || isCreatingTemplate || isCreatingEmail) && (
           <div className="flex items-center space-x-2">
             <span className="text-sm">Preview</span>
             <Switch
@@ -413,6 +525,14 @@ export default function EnhancedEmailCampaignGenerator() {
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false)
   const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
   const [statusUpdate, setStatusUpdate] = useState<string | null>(null);
+  const [isCreatingEmail, setIsCreatingEmail] = useState(false);
+  const [emailData, setEmailData] = useState<EmailData>({
+    template: null,
+    subject: '',
+    body: '',
+    recipients: [],
+    scheduledDateTime: undefined,
+  });
 
   const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
@@ -460,13 +580,18 @@ export default function EnhancedEmailCampaignGenerator() {
     const handleKeyDown = (event: KeyboardEvent) => {
       handleKeyboardShortcut(event as unknown as React.KeyboardEvent<Element>, {
         'cmd+t': () => {
-          if (!isCreatingCampaign && !isCreatingTemplate) {
+          if (!isCreatingCampaign && !isCreatingTemplate && !isCreatingEmail) {
             startCampaignCreation();
           }
         },
         'cmd+u': () => {
-          if (!isCreatingCampaign && !isCreatingTemplate) {
+          if (!isCreatingCampaign && !isCreatingTemplate && !isCreatingEmail) {
             startTemplateCreation();
+          }
+        },
+        'cmd+e': () => {
+          if (!isCreatingCampaign && !isCreatingTemplate && !isCreatingEmail) {
+            startEmailCreation();
           }
         },
         'cmd+k': () => {
@@ -481,7 +606,7 @@ export default function EnhancedEmailCampaignGenerator() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isCreatingCampaign, isCreatingTemplate]);
+  }, [isCreatingCampaign, isCreatingTemplate, isCreatingEmail]);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
@@ -507,6 +632,17 @@ export default function EnhancedEmailCampaignGenerator() {
     setMessages(prev => [...prev, 
       { role: 'user', content: "I want to create a template" },
       { role: 'assistant', content: "Certainly! Let's create a new email template. Please describe the type of template you want to create." }
+    ]);
+  };
+
+  const startEmailCreation = () => {
+    setIsCreatingEmail(true);
+    setCurrentAction('createEmail');
+    setCurrentStep(1);
+    setIsFormVisible(true);
+    setMessages(prev => [...prev, 
+      { role: 'user', content: "I want to send an email" },
+      { role: 'assistant', content: "Certainly! Let's create a new email. First, would you like to choose a template or start from scratch?" }
     ]);
   };
 
@@ -690,13 +826,13 @@ export default function EnhancedEmailCampaignGenerator() {
       console.error('Error saving campaign:', error)
       setMessages(prev => [...prev, 
         { role: 'assistant', content: `I'm sorry, but there was an error creating the campaign: ${error instanceof Error ? error.message : 'Unknown error'}. Can I help you troubleshoot or try again?` }
-      ])
+      ]);
     }
   }
 
   const handleCancel = () => {
-    setCurrentAction(null)
-    setCurrentStep(0)
+    setCurrentAction(null);
+    setCurrentStep(0);
     setCampaignData({
       name: '',
       type: '',
@@ -705,13 +841,21 @@ export default function EnhancedEmailCampaignGenerator() {
       recipients: [],
       isScheduled: false,
       template: null
-    })
-    setIsFormVisible(false)
-    setIsCreatingCampaign(false) // Reset the campaign creation state
-    setIsCreatingTemplate(false) // Reset the template creation state
+    });
+    setEmailData({
+      template: null,
+      subject: '',
+      body: '',
+      recipients: [],
+      scheduledDateTime: undefined,
+    });
+    setIsFormVisible(false);
+    setIsCreatingCampaign(false);
+    setIsCreatingTemplate(false);
+    setIsCreatingEmail(false);
     setMessages(prev => [...prev, 
       { role: 'assistant', content: "I've cancelled the current action. What else can I help you with?" }
-    ])
+    ]);
   }
 
   const handleTemplateInput = async (field: keyof TemplateData) => {
@@ -784,19 +928,121 @@ export default function EnhancedEmailCampaignGenerator() {
     setCurrentStep(nextStep);
   };
 
+  const handleEmailInput = async (field: keyof EmailData) => {
+    const value = emailData[field];
+    let nextStep = currentStep + 1;
+
+    switch (field) {
+      case 'template':
+        if (value === '_scratch') {
+          setEmailData(prev => ({
+            ...prev,
+            subject: '',
+            body: '',
+          }));
+          setStatusUpdate("Starting from scratch. Please enter the subject.");
+        } else if (value) {
+          const selectedTemplate = emailTemplates.find(t => t.id === value);
+          if (selectedTemplate) {
+            setEmailData(prev => ({
+              ...prev,
+              subject: selectedTemplate.subject,
+              body: selectedTemplate.body,
+            }));
+            setStatusUpdate("Template selected. You can now edit the subject and body.");
+          }
+        }
+        break;
+      case 'subject':
+        setStatusUpdate("Subject set. Now let's craft the email body.");
+        break;
+      case 'body':
+        setStatusUpdate("Email body set. Now, let's add recipients.");
+        break;
+      case 'recipients':
+        if ((value as { name: string; email: string }[]).length > 1) {
+          setStatusUpdate("Multiple recipients added. Would you like to create a campaign instead?");
+          // Offer option to create campaign or continue with individual emails
+        } else {
+          setStatusUpdate("Recipient added. Would you like to schedule this email or send it now?");
+        }
+        break;
+      case 'scheduledDateTime':
+        if (value) {
+          await sendOrScheduleEmail(emailData, value as Date);
+        } else {
+          await sendOrScheduleEmail(emailData);
+        }
+        return;
+      default:
+        break;
+    }
+
+    setCurrentStep(nextStep);
+  };
+
+  const sendOrScheduleEmail = async (emailData: EmailData, scheduledDateTime?: Date) => {
+    try {
+      const tokens = JSON.parse(localStorage.getItem('gmail_tokens') || '{}')
+      const userEmail = localStorage.getItem('user_email') || ''
+
+      const campaignData: CampaignCreationData = {
+        name: `Single Email - ${new Date().toISOString()}`,
+        type: 'single',
+        subject: emailData.subject,
+        body: emailData.body,
+        recipients: emailData.recipients,
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        isRecurring: false,
+        targetAudience: 'specific',
+        userEmail,
+        tokens,
+        isScheduled: !!scheduledDateTime,
+        scheduledDateTime: scheduledDateTime?.toISOString(),
+        isSingleEmail: true,
+      };
+
+      const newCampaign = await createCampaign(campaignData);
+
+      console.log("New email campaign object:", newCampaign);
+
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: scheduledDateTime
+          ? `Great! Your email has been scheduled for ${scheduledDateTime.toLocaleString()}. It will be sent to ${emailData.recipients.length} recipient(s). Is there anything else I can help you with?`
+          : `Excellent! Your email has been sent to ${emailData.recipients.length} recipient(s). Is there anything else you'd like to do?`
+        }
+      ]);
+      setCurrentStep(0);
+      setCurrentAction(null);
+      setIsFormVisible(false);
+      setIsCreatingEmail(false);
+    } catch (error) {
+      console.error('Error sending/scheduling email:', error);
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `I'm sorry, but there was an error sending/scheduling the email: ${error instanceof Error ? error.message : 'Unknown error'}. Can I help you troubleshoot or try again?` }
+      ]);
+    }
+  };
+
   return (
     <div 
       className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}
       tabIndex={0}
       onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => handleKeyboardShortcut(e, {
         'cmd+t': () => {
-          if (!isCreatingCampaign && !isCreatingTemplate) {
+          if (!isCreatingCampaign && !isCreatingTemplate && !isCreatingEmail) {
             startCampaignCreation();
           }
         },
         'cmd+u': () => {
-          if (!isCreatingCampaign && !isCreatingTemplate) {
+          if (!isCreatingCampaign && !isCreatingTemplate && !isCreatingEmail) {
             startTemplateCreation();
+          }
+        },
+        'cmd+e': () => {
+          if (!isCreatingCampaign && !isCreatingTemplate && !isCreatingEmail) {
+            startEmailCreation();
           }
         },
         'cmd+k': () => {
@@ -923,6 +1169,11 @@ export default function EnhancedEmailCampaignGenerator() {
                     handleScheduleCampaign={handleScheduleCampaign}
                     handleCustomDateTimeSubmit={handleCustomDateTimeSubmit}
                     handleFileUpload={handleFileUpload}
+                    isCreatingEmail={isCreatingEmail}
+                    emailData={emailData}
+                    setEmailData={setEmailData}
+                    handleEmailInput={handleEmailInput}
+                    setCurrentStep={setCurrentStep}
                   />
                 </motion.div>
               )}

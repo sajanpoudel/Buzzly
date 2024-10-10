@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -147,3 +147,62 @@ export const TemplateNameInput = ({ value, onChange }: { value: string; onChange
     />
   </div>
 );
+
+export const TemplateSelect = ({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) => (
+  <div className="space-y-2 w-full">
+    <Label htmlFor="template" className="text-sm font-medium">Choose a Template</Label>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger id="template" className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <SelectValue placeholder="Select a template" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="_scratch">Start from scratch</SelectItem>
+        {options.map(option => (
+          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+);
+
+export const RecipientInput = ({ recipients, onAdd, onRemove }: { recipients: { name: string; email: string }[]; onAdd: (recipient: { name: string; email: string }) => void; onRemove: (index: number) => void }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+
+  const handleAdd = () => {
+    if (name && email) {
+      onAdd({ name, email });
+      setName('');
+      setEmail('');
+    }
+  };
+
+  return (
+    <div className="space-y-4 w-full">
+      <Label className="text-sm font-medium">Recipients</Label>
+      <div className="flex space-x-2">
+        <Input
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="flex-1"
+        />
+        <Input
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="flex-1"
+        />
+        <Button onClick={handleAdd} type="button">Add</Button>
+      </div>
+      <div className="space-y-2">
+        {recipients.map((recipient, index) => (
+          <div key={index} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded">
+            <span>{recipient.name} ({recipient.email})</span>
+            <Button onClick={() => onRemove(index)} variant="ghost" size="sm">Remove</Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
