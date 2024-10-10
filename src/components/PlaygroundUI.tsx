@@ -120,3 +120,30 @@ export const TimePicker = ({ value, onChange }: { value: string; onChange: (valu
     />
   </div>
 );
+
+export const TemplateDescriptionInput = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+  <div className="space-y-2 w-full">
+    <Label htmlFor="templateDescription" className="text-sm font-medium">Template Description</Label>
+    <Textarea
+      id="templateDescription"
+      placeholder="Describe the template you want to create..."
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+      rows={4}
+    />
+  </div>
+);
+
+export const TemplateNameInput = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+  <div className="space-y-2 w-full">
+    <Label htmlFor="templateName" className="text-sm font-medium">Template Name</Label>
+    <Input
+      id="templateName"
+      placeholder="Enter template name"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    />
+  </div>
+);

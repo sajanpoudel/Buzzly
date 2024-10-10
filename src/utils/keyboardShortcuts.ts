@@ -12,6 +12,12 @@ export const SHORTCUTS: Record<string, ShortcutAction> = {
     },
     description: 'Create a new campaign',
   },
+  'cmd+u': {
+    action: () => {
+      // This will be implemented in the component
+    },
+    description: 'Create a new template',
+  },
   'cmd+k': {
     action: () => {
       // This will be implemented in the component
@@ -36,6 +42,9 @@ export const handleKeyboardShortcut = (
   if (cmd && key === 't') {
     event.preventDefault();
     actions['cmd+t']();
+  } else if (cmd && key === 'u') {
+    event.preventDefault();
+    actions['cmd+u']();
   } else if (cmd && key === 'k') {
     event.preventDefault();
     actions['cmd+k']();

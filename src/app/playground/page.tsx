@@ -23,6 +23,7 @@ import { getInitialsFromEmail } from '@/utils/stringUtils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { handleKeyboardShortcut, SHORTCUTS } from '@/utils/keyboardShortcuts'
+import { generateTemplate, saveTemplate } from '@/functionCalling/templateFunctions';
 
 interface Message {
   role: 'user' | 'assistant'
@@ -38,6 +39,13 @@ interface CampaignData {
   isScheduled: boolean
   scheduledDateTime?: Date
   template: EmailTemplate | null
+}
+
+interface TemplateData {
+  name: string;
+  description: string;
+  subject: string;
+  body: string;
 }
 
 export default function EnhancedEmailCampaignGenerator() {
@@ -57,6 +65,12 @@ export default function EnhancedEmailCampaignGenerator() {
     isScheduled: false,
     template: null
   })
+  const [templateData, setTemplateData] = useState<TemplateData>({
+    name: '',
+    description: '',
+    subject: '',
+    body: '',
+  });
   const [currentStep, setCurrentStep] = useState(0)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -64,6 +78,7 @@ export default function EnhancedEmailCampaignGenerator() {
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null)
   const [isFormVisible, setIsFormVisible] = useState(false)
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false)
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
 
   const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
@@ -111,12 +126,16 @@ export default function EnhancedEmailCampaignGenerator() {
     const handleKeyDown = (event: KeyboardEvent) => {
       handleKeyboardShortcut(event as unknown as React.KeyboardEvent<Element>, {
         'cmd+t': () => {
-          if (!isCreatingCampaign) {
+          if (!isCreatingCampaign && !isCreatingTemplate) {
             startCampaignCreation();
           }
         },
+        'cmd+u': () => {
+          if (!isCreatingCampaign && !isCreatingTemplate) {
+            startTemplateCreation();
+          }
+        },
         'cmd+k': () => {
-          // Implement command palette functionality here
           console.log('Command palette opened');
         },
         'esc': handleCancel,
@@ -128,7 +147,7 @@ export default function EnhancedEmailCampaignGenerator() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isCreatingCampaign]); // Add isCreatingCampaign to the dependency array
+  }, [isCreatingCampaign, isCreatingTemplate]);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
@@ -143,6 +162,17 @@ export default function EnhancedEmailCampaignGenerator() {
     setMessages(prev => [...prev, 
       { role: 'user', content: "I want to create a campaign" },
       { role: 'assistant', content: "Certainly! Let's create a new campaign. What would you like to name your campaign?" }
+    ]);
+  };
+
+  const startTemplateCreation = () => {
+    setIsCreatingTemplate(true);
+    setCurrentAction('createTemplate');
+    setCurrentStep(1);
+    setIsFormVisible(true);
+    setMessages(prev => [...prev, 
+      { role: 'user', content: "I want to create a template" },
+      { role: 'assistant', content: "Certainly! Let's create a new email template. Please describe the type of template you want to create." }
     ]);
   };
 
@@ -356,10 +386,78 @@ Would you like to make any changes to this template?`;
     })
     setIsFormVisible(false)
     setIsCreatingCampaign(false) // Reset the campaign creation state
+    setIsCreatingTemplate(false) // Reset the template creation state
     setMessages(prev => [...prev, 
       { role: 'assistant', content: "I've cancelled the current action. What else can I help you with?" }
     ])
   }
+
+  const handleTemplateInput = async (field: keyof TemplateData) => {
+    const value = templateData[field];
+    let nextStep = currentStep + 1;
+
+    switch (field) {
+      case 'description':
+        if (value.length > 5) {
+          try {
+            const generatedTemplate = await generateTemplate(value);
+            
+            // Clean up the subject by removing "Subject:" prefix and any asterisks
+            const cleanSubject = generatedTemplate.subject
+              .replace(/^Subject:\s*/i, '')
+              .replace(/\*\*/g, '')
+              .replace(/<[^>]*>/g, '')
+              .trim();
+
+            // Clean up the body by removing "Body:" prefix and any asterisks
+            const cleanBody = generatedTemplate.body
+              .replace(/^\*\*Body\*\*:\s*/i, '')
+              .replace(/\*\*/g, '')
+              .trim();
+
+            setTemplateData(prev => ({
+              ...prev,
+              subject: cleanSubject,
+              body: cleanBody,
+            }));
+            nextStep = 2; // Move to the next step to show the generated template
+          } catch (error) {
+            console.error('Error generating template:', error);
+            nextStep = currentStep; // Stay on the same step
+          }
+        } else {
+          nextStep = currentStep; // Stay on the same step
+        }
+        break;
+      case 'name':
+        if (value.trim()) {
+          await saveTemplate(value, templateData.subject, templateData.body);
+          setIsCreatingTemplate(false);
+          setCurrentStep(0);
+          setIsFormVisible(false);
+          // Add a message to indicate the template was saved
+          setMessages(prev => [...prev, 
+            { role: 'assistant', content: `Great! Your template "${value}" has been saved. Is there anything else I can help you with?` }
+          ]);
+          // Reset template data
+          setTemplateData({
+            name: '',
+            description: '',
+            subject: '',
+            body: '',
+          });
+          // Return to chat area
+          return;
+        } else {
+          nextStep = currentStep; // Stay on the same step
+        }
+        break;
+      default:
+        nextStep = currentStep;
+    }
+
+    setCurrentStep(nextStep);
+  };
 
   const renderCurrentStep = () => {
     const renderButtons = (onNext: () => void) => (
@@ -381,7 +479,15 @@ Would you like to make any changes to this template?`;
 
     switch (currentStep) {
       case 1:
-        return (
+        return isCreatingTemplate ? (
+          <div className="space-y-4 w-full max-w-md mx-auto">
+            <PlaygroundUI.TemplateDescriptionInput 
+              value={templateData.description}
+              onChange={(value) => setTemplateData(prev => ({ ...prev, description: value }))}
+            />
+            {renderButtons(() => handleTemplateInput('description'))}
+          </div>
+        ) : (
           <div className="space-y-4 w-full max-w-md mx-auto">
             <PlaygroundUI.CampaignNameInput 
               value={campaignData.name}
@@ -391,7 +497,23 @@ Would you like to make any changes to this template?`;
           </div>
         );
       case 2:
-        return (
+        return isCreatingTemplate ? (
+          <div className="space-y-4 w-full max-w-md mx-auto">
+            <PlaygroundUI.SubjectInput
+              value={templateData.subject}
+              onChange={(value) => setTemplateData(prev => ({ ...prev, subject: value }))}
+            />
+            <PlaygroundUI.BodyTextarea
+              value={templateData.body}
+              onChange={(value) => setTemplateData(prev => ({ ...prev, body: value }))}
+            />
+            <PlaygroundUI.TemplateNameInput
+              value={templateData.name}
+              onChange={(value) => setTemplateData(prev => ({ ...prev, name: value }))}
+            />
+            {renderButtons(() => handleTemplateInput('name'))}
+          </div>
+        ) : (
           <div className="space-y-4 w-full max-w-md mx-auto">
             <PlaygroundUI.CampaignTypeSelect
               value={campaignData.type}
@@ -481,8 +603,13 @@ Would you like to make any changes to this template?`;
       tabIndex={0}
       onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => handleKeyboardShortcut(e, {
         'cmd+t': () => {
-          if (!isCreatingCampaign) {
+          if (!isCreatingCampaign && !isCreatingTemplate) {
             startCampaignCreation();
+          }
+        },
+        'cmd+u': () => {
+          if (!isCreatingCampaign && !isCreatingTemplate) {
+            startTemplateCreation();
           }
         },
         'cmd+k': () => {
