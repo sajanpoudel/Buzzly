@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
 import Sidebar from '@/components/Sidebar'
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { Label } from "@/components/ui/label"
@@ -21,6 +20,8 @@ import * as PlaygroundUI from '@/components/PlaygroundUI'
 import { format } from 'date-fns'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitialsFromEmail } from '@/utils/stringUtils'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 interface Message {
   role: 'user' | 'assistant'
@@ -38,75 +39,77 @@ interface CampaignData {
   template: EmailTemplate | null
 }
 
-export default function Playground() {
-    const [darkMode, setDarkMode] = useState(false)
-    const [messages, setMessages] = useState<Message[]>([
-      { role: 'assistant', content: "Hello! I'm your AI assistant for email campaigns. How can I help you today?" }
-    ])
-    const [input, setInput] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const [currentAction, setCurrentAction] = useState<string | null>(null)
-    const [campaignData, setCampaignData] = useState<CampaignData>({
-      name: '',
-      type: '',
-      subject: '',
-      body: '',
-      recipients: [],
-      isScheduled: false,
-      template: null
-    })
-    const [currentStep, setCurrentStep] = useState(0)
-    const chatEndRef = useRef<HTMLDivElement>(null)
-    const inputRef = useRef<HTMLInputElement>(null)
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-    const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null)
-  
-    const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
-  
-    useEffect(() => {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages])
-  
-    useEffect(() => {
-      const interval = setInterval(() => {
-        checkAndSendScheduledCampaigns();
-      }, 60000); // Check every minute
-  
-      return () => clearInterval(interval);
-    }, []);
-  
-    useEffect(() => {
-      const fetchUserInfo = async () => {
-        const storedTokens = localStorage.getItem('gmail_tokens');
-        if (storedTokens) {
-          const tokens = JSON.parse(storedTokens);
-          try {
-            const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ tokens }),
-            });
-            if (response.ok) {
-              const data = await response.json();
-              setUserInfo(data);
-            } else {
-              console.error('Failed to fetch user info');
-            }
-          } catch (error) {
-            console.error('Error fetching user info:', error);
+export default function EnhancedEmailCampaignGenerator() {
+  const [darkMode, setDarkMode] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: "Hello! I'm your AI assistant for email campaigns. How can I help you today?" }
+  ])
+  const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [currentAction, setCurrentAction] = useState<string | null>(null)
+  const [campaignData, setCampaignData] = useState<CampaignData>({
+    name: '',
+    type: '',
+    subject: '',
+    body: '',
+    recipients: [],
+    isScheduled: false,
+    template: null
+  })
+  const [currentStep, setCurrentStep] = useState(0)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null)
+  const [isFormVisible, setIsFormVisible] = useState(false)
+
+  const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkAndSendScheduledCampaigns();
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      const storedTokens = localStorage.getItem('gmail_tokens');
+      if (storedTokens) {
+        const tokens = JSON.parse(storedTokens);
+        try {
+          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ tokens }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setUserInfo(data);
+          } else {
+            console.error('Failed to fetch user info');
           }
+        } catch (error) {
+          console.error('Error fetching user info:', error);
         }
-      };
-  
-      fetchUserInfo();
-    }, []);
-  
-    const toggleDarkMode = () => {
-      setDarkMode(!darkMode)
-      document.documentElement.classList.toggle('dark')
-    }
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode)
+    document.documentElement.classList.toggle('dark')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
@@ -122,6 +125,7 @@ export default function Playground() {
       if (response.includes("Let's create a new campaign")) {
         setCurrentAction('createCampaign')
         setCurrentStep(1)
+        setIsFormVisible(true)
       }
     } catch (error) {
       console.error('Error handling user input:', error)
@@ -130,9 +134,6 @@ export default function Playground() {
 
     setIsLoading(false)
   }
-
-
-
 
   const handleCampaignInput = (field: keyof CampaignData) => {
     setCampaignData(prev => ({ ...prev, [field]: input }));
@@ -172,17 +173,18 @@ export default function Playground() {
 
     switch (field) {
       case 'name':
-        nextPrompt = `Great! Your campaign name is "${value}". Now, let's choose a template for your campaign. Which type of template would you like to use?`;
+        nextPrompt = `Great! Your campaign name is "${value}". Now, let's choose the type of campaign. What type of campaign would you like to create?`;
         break;
-      case 'template':
-        const template = campaignData.template;
+      case 'type':
+        const template = emailTemplates.find(t => t.id === value);
         if (template) {
           setCampaignData(prev => ({
             ...prev,
             subject: template.subject,
-            body: template.body
+            body: template.body,
+            template: template
           }));
-          nextPrompt = `Excellent choice! I've selected the "${template.name}" template for you. Here's a preview of the subject and body:
+          nextPrompt = `Excellent choice. I've selected the "${template.name}" template for your "${campaignData.name}" campaign. Here's a preview of the subject and body:
 
 Subject: ${template.subject}
 
@@ -190,15 +192,17 @@ Body: ${template.body}
 
 Would you like to make any changes to this template?`;
         } else {
-          nextPrompt = "I'm sorry, but I couldn't find that template. Let's try selecting a template again.";
-          nextStep = currentStep;
+          nextPrompt = `Excellent choice. For the "${campaignData.name}" ${value} campaign, what's the subject line?`;
         }
         break;
       case 'subject':
-        nextPrompt = "Great! Now, let's review the email body. Would you like to make any changes?";
+        nextPrompt = "Great! Now, let's craft the body of your email. What message would you like to convey?";
         break;
       case 'body':
         nextPrompt = "Perfect! Now, let's upload a CSV file with your recipient list.";
+        break;
+      case 'recipients':
+        nextPrompt = "Great! Your recipient list has been uploaded. Would you like to schedule this campaign or send it right away?";
         break;
       default:
         nextPrompt = "What would you like to do next?";
@@ -295,6 +299,7 @@ Would you like to make any changes to this template?`;
       ])
       setCurrentStep(0)
       setCurrentAction(null)
+      setIsFormVisible(false)
     } catch (error) {
       console.error('Error saving campaign:', error)
       setMessages(prev => [...prev, 
@@ -315,121 +320,146 @@ Would you like to make any changes to this template?`;
       isScheduled: false,
       template: null
     })
+    setIsFormVisible(false)
     setMessages(prev => [...prev, 
       { role: 'assistant', content: "I've cancelled the current action. What else can I help you with?" }
     ])
   }
 
-  
-
   const renderCurrentStep = () => {
+    const renderButtons = (onNext: () => void) => (
+      <div className="flex space-x-4 mt-4">
+        <Button 
+          onClick={onNext}
+          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200"
+        >
+          Next
+        </Button>
+        <Button 
+          onClick={handleCancel}
+          className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200"
+        >
+          Cancel
+        </Button>
+      </div>
+    );
+
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-2">
-            <Label>Campaign Name</Label>
-            <Input 
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleCampaignInput('name')}
+          <div className="space-y-4 w-full max-w-md mx-auto">
+            <PlaygroundUI.CampaignNameInput 
+              value={campaignData.name}
+              onChange={(value) => setCampaignData(prev => ({ ...prev, name: value }))}
             />
-            <Button onClick={() => handleCampaignInput('name')}>Next</Button>
+            {renderButtons(() => handleInputSubmit('name'))}
           </div>
         );
       case 2:
         return (
-          <div className="space-y-2">
-            <Label>Campaign Type</Label>
-            <Input 
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleCampaignInput('type')}
+          <div className="space-y-4 w-full max-w-md mx-auto">
+            <PlaygroundUI.CampaignTypeSelect
+              value={campaignData.type}
+              onChange={(value) => {
+                setCampaignData(prev => ({ ...prev, type: value }));
+                handleInputSubmit('type');
+              }}
+              options={emailTemplates.map(template => ({
+                value: template.id,
+                label: template.name
+              }))}
             />
-            <Button onClick={() => handleCampaignInput('type')}>Next</Button>
           </div>
         );
       case 3:
         return (
-          <div className="space-y-2">
-            <Label>Subject</Label>
-            <Input 
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleCampaignInput('subject')}
+          <div className="space-y-4 w-full max-w-md mx-auto">
+            <PlaygroundUI.SubjectInput
+              value={campaignData.subject}
+              onChange={(value) => setCampaignData(prev => ({ ...prev, subject: value }))}
             />
-            <Button onClick={() => handleCampaignInput('subject')}>Next</Button>
+            {renderButtons(() => handleInputSubmit('subject'))}
           </div>
         );
       case 4:
         return (
-          <div className="space-y-2">
-            <Label>Email Body</Label>
-            <Textarea 
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              rows={5}
+          <div className="space-y-4 w-full max-w-2xl mx-auto">
+            <PlaygroundUI.BodyTextarea
+              value={campaignData.body}
+              onChange={(value) => setCampaignData(prev => ({ ...prev, body: value }))}
             />
-            <Button onClick={() => handleCampaignInput('body')}>Next</Button>
+            {renderButtons(() => handleInputSubmit('body'))}
           </div>
         );
       case 5:
         return (
-          <div className="space-y-2">
-            <FileUpload label="Upload CSV" accept=".csv" onChange={handleFileUpload} />
+          <div className="space-y-4 w-full max-w-md mx-auto">
+            <PlaygroundUI.RecipientFileUpload onChange={handleFileUpload} />
+            {renderButtons(() => handleInputSubmit('recipients'))}
           </div>
         );
       case 6:
         return (
-          <div className="space-y-4">
-            <Button onClick={() => handleScheduleCampaign('now')}>Send Now</Button>
-            <Button onClick={() => handleScheduleCampaign('tomorrow')}>Tomorrow at 10:00 AM</Button>
-            <Button onClick={() => handleScheduleCampaign('in2days')}>In 2 days at 10:00 AM</Button>
-            <Button onClick={() => handleScheduleCampaign('custom')}>Custom Date & Time</Button>
+          <div className="space-y-4 w-full max-w-md mx-auto">
+            <Button onClick={() => handleScheduleCampaign('now')} className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">Send Now</Button>
+            <Button onClick={() => handleScheduleCampaign('tomorrow')} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">Tomorrow at 10:00 AM</Button>
+            <Button onClick={() => handleScheduleCampaign('in2days')} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">In 2 days at 10:00 AM</Button>
+            <Button onClick={() => handleScheduleCampaign('custom')} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">Custom Date & Time</Button>
+            {renderButtons(handleCancel)}
           </div>
         );
       case 7:
         return (
-          <div className="space-y-4">
-            <div className="flex space-x-4">
-              <div className="flex-1">
-                <Label htmlFor="customDate">Date</Label>
-                <PlaygroundUI.DatePicker 
-                  value={campaignData.scheduledDateTime} 
-                  onChange={(date) => setCampaignData(prev => ({ ...prev, scheduledDateTime: date }))} 
-                />
-              </div>
-              <div className="flex-1">
-                <Label htmlFor="customTime">Time</Label>
-                <PlaygroundUI.TimePicker 
-                  value={campaignData.scheduledDateTime && !isNaN(campaignData.scheduledDateTime.getTime()) 
-                    ? format(campaignData.scheduledDateTime, 'HH:mm') 
-                    : '10:00'
-                  } 
-                  onChange={(time) => {
-                    const [hours, minutes] = time.split(':').map(Number);
-                    const newDate = new Date(campaignData.scheduledDateTime || new Date());
-                    newDate.setHours(hours, minutes);
-                    setCampaignData(prev => ({ ...prev, scheduledDateTime: newDate }));
-                  }} 
-                />
-              </div>
+          <div className="space-y-4 w-full max-w-md mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <PlaygroundUI.DatePicker 
+                value={campaignData.scheduledDateTime} 
+                onChange={(date) => setCampaignData(prev => ({ ...prev, scheduledDateTime: date }))} 
+              />
+              <PlaygroundUI.TimePicker 
+                value={campaignData.scheduledDateTime && !isNaN(campaignData.scheduledDateTime.getTime()) 
+                  ? format(campaignData.scheduledDateTime, 'HH:mm') 
+                  : '10:00'
+                } 
+                onChange={(time) => {
+                  const [hours, minutes] = time.split(':').map(Number);
+                  const newDate = new Date(campaignData.scheduledDateTime || new Date());
+                  newDate.setHours(hours, minutes);
+                  setCampaignData(prev => ({ ...prev, scheduledDateTime: newDate }));
+                }} 
+              />
             </div>
-            <Button onClick={handleCustomDateTimeSubmit}>Confirm Schedule</Button>
-            <Button variant="outline" onClick={() => setCurrentStep(6)}>Back</Button>
+            <div className="flex space-x-4">
+              <Button onClick={handleCustomDateTimeSubmit} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">Confirm Schedule</Button>
+              <Button onClick={handleCancel} className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">Cancel</Button>
+            </div>
           </div>
         );
       default:
         return null;
     }
   }
+
   return (
     <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
-      <header className="bg-white dark:bg-gray-800 shadow-sm">
+
+    <div className="flex flex-1 overflow-hidden">
+      <Sidebar 
+        darkMode={darkMode} 
+        toggleDarkMode={toggleDarkMode}
+        isMobileMenuOpen={isMobileMenuOpen}
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
+        className="hidden lg:block"
+      />
+     
+        
+        <main className="flex-1 p-4 lg:p-8 overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+          <div className="max-w-7xl mx-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden">
             <Menu className="h-6 w-6" />
           </Button>
-          <h1 className="text-xl font-bold dark:text-white">AI Campaign Assistant</h1>
+          <h1 className="text-xl font-bold text-foreground">AI Campaign Assistant</h1>
           <div className="flex items-center space-x-4">
             <div className="relative w-full lg:w-96 hidden lg:block">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -452,37 +482,42 @@ Would you like to make any changes to this template?`;
             </Avatar>
           </div>
         </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
-          darkMode={darkMode}
-          toggleDarkMode={toggleDarkMode}
-          isMobileMenuOpen={isMobileMenuOpen}
-          setIsMobileMenuOpen={setIsMobileMenuOpen}
-          className="hidden lg:block"
-        />
-        
-        <main className="flex-1 p-4 lg:p-8 overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
-          <div className="max-w-4xl mx-auto">
-            <Card className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-              <CardContent className="flex-1 flex flex-col p-6 space-y-6">
-                <div className="flex-1 overflow-y-auto space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4a5568 #2d3748' }}>
+            
+            <div className="flex-1 flex flex-col overflow-hidden  text-foreground rounded-lg">
+              <div className="flex-1 flex flex-col  p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto  space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--scrollbar) var(--scrollbar-bg)' }}>
                   {messages.map((message, index) => (
-                    <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
                       <div className={`max-w-[80%] p-4 rounded-lg ${
                         message.role === 'user' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-background text-muted-foreground'
                       }`}>
-                        <p>{message.content}</p>
+                        <p className="text-sm">{message.content}</p>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                   <div ref={chatEndRef} />
                 </div>
-
-                {renderCurrentStep()}
+                <div className="flex justify-start">
+                <div className="flex-2 w-[500px] justify-start space-y-6">                <AnimatePresence>
+                  {isFormVisible && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {renderCurrentStep()}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {currentStep === 0 && (
                   <form onSubmit={handleSubmit} className="mt-auto">
@@ -491,7 +526,7 @@ Would you like to make any changes to this template?`;
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Ask me anything about email campaigns..."
-                        className="pr-12 py-3 text-lg min-h-[100px] resize-none bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                        className="pr-12 py-3 text-sm min-h-[100px] resize-none bg-background border-input focus:border-ring focus:ring-ring rounded-lg w-full"
                         onKeyPress={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -502,41 +537,23 @@ Would you like to make any changes to this template?`;
                       <Button 
                         type="submit" 
                         disabled={isLoading} 
-                        className="absolute right-2 bottom-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2"
+                        className="absolute right-2 bottom-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-2 transition-colors duration-200"
                       >
                         {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                       </Button>
                     </div>
                   </form>
                 )}
-
-                {currentAction && (
-                  <Button onClick={handleCancel} className="mt-4 bg-red-600 hover:bg-red-700 text-white">
-                    <X className="mr-2 h-4 w-4" /> Cancel Current Action
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+                </div>
+              
+              </div>
+            </div>
           </div>
         </main>
       </div>
 
-      {/* Mobile sidebar overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        ></div>
-      )}
-
-      {/* Mobile sidebar */}
-      <Sidebar 
-        darkMode={darkMode} 
-        toggleDarkMode={toggleDarkMode} 
-        className="lg:hidden"
-        isMobileMenuOpen={isMobileMenuOpen}
-        setIsMobileMenuOpen={setIsMobileMenuOpen}
-      />
+    
     </div>
   )
 }
