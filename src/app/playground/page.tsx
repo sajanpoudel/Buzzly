@@ -49,6 +49,37 @@ interface TemplateData {
   body: string;
 }
 
+const InfinityLoader = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M13.1,8.3c1.5-1.5,3.9-1.5,5.4,0c1.5,1.5,1.5,3.9,0,5.4l-2.7,2.7c-1.5,1.5-3.9,1.5-5.4,0c-0.7-0.7-1.1-1.7-1.1-2.7
+      s0.4-2,1.1-2.7l2.7-2.7z M10.9,15.7c-1.5,1.5-3.9,1.5-5.4,0c-1.5-1.5-1.5-3.9,0-5.4l2.7-2.7c1.5-1.5,3.9-1.5,5.4,0
+      c0.7,0.7,1.1,1.7,1.1,2.7s-0.4,2-1.1,2.7l-2.7,2.7z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <animate
+        attributeName="stroke"
+        values="#87CEEB;#4682B4;#1E90FF;#87CEEB"
+        dur="4s"
+        repeatCount="indefinite"
+      />
+      <animateTransform
+        attributeName="transform"
+        attributeType="XML"
+        type="rotate"
+        from="0 12 12"
+        to="360 12 12"
+        dur="4s"
+        repeatCount="indefinite"
+      />
+    </path>
+  </svg>
+);
+
 const StatusUpdate = ({ message }: { message: string }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
@@ -56,7 +87,7 @@ const StatusUpdate = ({ message }: { message: string }) => (
     exit={{ opacity: 0, y: -20 }}
     className="flex items-center space-x-2 text-sm text-muted-foreground"
   >
-    <Loader2 className="h-4 w-4 animate-spin" />
+    <InfinityLoader />
     <span>{message}</span>
   </motion.div>
 );
@@ -73,7 +104,10 @@ const RightPanel = ({
   setCampaignData,
   setTemplateData,
   statusUpdate,
-  setStatusUpdate
+  setStatusUpdate,
+  handleScheduleCampaign,
+  handleCustomDateTimeSubmit,
+  handleFileUpload,
 }: {
   isCreatingCampaign: boolean;
   isCreatingTemplate: boolean;
@@ -87,6 +121,9 @@ const RightPanel = ({
   setTemplateData: React.Dispatch<React.SetStateAction<TemplateData>>;
   statusUpdate: string | null;
   setStatusUpdate: React.Dispatch<React.SetStateAction<string | null>>;
+  handleScheduleCampaign: (scheduleType: 'now' | 'tomorrow' | 'in2days' | 'custom') => void;
+  handleCustomDateTimeSubmit: () => void;
+  handleFileUpload: (file: File | null) => void;
 }) => {
   const [showPreview, setShowPreview] = useState(false);
 
@@ -191,15 +228,54 @@ const RightPanel = ({
             <div className="space-y-4 w-full">
               <PlaygroundUI.RecipientFileUpload
                 onChange={(file) => {
-                  // Handle file upload logic here
-                  if (file) {
-                    // Process the file and update campaignData.recipients
-                    // For now, we'll just log the file name
-                    console.log(`File uploaded: ${file.name}`);
-                  }
-                  handleInputSubmit('recipients');
+                  handleFileUpload(file);
                 }}
               />
+            </div>
+          );
+        case 6:
+          return (
+            <div className="space-y-4 w-full">
+              <Button onClick={() => handleScheduleCampaign('now')} className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center">
+                <InfinityLoader />
+                <span className="ml-2">Send Now</span>
+              </Button>
+              <Button onClick={() => handleScheduleCampaign('tomorrow')} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center">
+                <InfinityLoader />
+                <span className="ml-2">Tomorrow at 10:00 AM</span>
+              </Button>
+              <Button onClick={() => handleScheduleCampaign('in2days')} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center">
+                <InfinityLoader />
+                <span className="ml-2">In 2 days at 10:00 AM</span>
+              </Button>
+              <Button onClick={() => handleScheduleCampaign('custom')} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center">
+                <InfinityLoader />
+                <span className="ml-2">Custom Date & Time</span>
+              </Button>
+            </div>
+          );
+        case 7:
+          return (
+            <div className="space-y-4 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <PlaygroundUI.DatePicker 
+                  value={campaignData.scheduledDateTime} 
+                  onChange={(date) => setCampaignData(prev => ({ ...prev, scheduledDateTime: date }))} 
+                />
+                <PlaygroundUI.TimePicker 
+                  value={campaignData.scheduledDateTime && !isNaN(campaignData.scheduledDateTime.getTime()) 
+                    ? format(campaignData.scheduledDateTime, 'HH:mm') 
+                    : '10:00'
+                  } 
+                  onChange={(time) => {
+                    const [hours, minutes] = time.split(':').map(Number);
+                    const newDate = new Date(campaignData.scheduledDateTime || new Date());
+                    newDate.setHours(hours, minutes);
+                    setCampaignData(prev => ({ ...prev, scheduledDateTime: newDate }));
+                  }} 
+                />
+              </div>
+              <Button onClick={handleCustomDateTimeSubmit} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 rounded-md transition-colors duration-200">Confirm Schedule</Button>
             </div>
           );
         default:
@@ -507,9 +583,7 @@ export default function EnhancedEmailCampaignGenerator() {
         break;
       case 'recipients':
         setStatusUpdate("Recipient list uploaded. Finalizing campaign...");
-        nextStep = 0;
-        setIsFormVisible(false);
-        setIsCreatingCampaign(false);
+        nextStep = 6;
         break;
       default:
         nextStep = currentStep;
@@ -524,20 +598,27 @@ export default function EnhancedEmailCampaignGenerator() {
       reader.onload = (e) => {
         const content = e.target?.result as string
         const lines = content.split('\n')
-        const recipients = lines.map(line => {
+        const recipients = lines.slice(1).map(line => {  // Skip header row if present
           const [name, email] = line.split(',')
           return { name: name.trim(), email: email.trim() }
-        })
+        }).filter(recipient => recipient.email)  // Filter out any empty entries
+
         setCampaignData(prev => ({ ...prev, recipients }))
+        console.log("Recipients loaded:", recipients)  // Log for debugging
+
+        setMessages(prev => [...prev, 
+          { role: 'user', content: `Uploaded ${file.name}` },
+          { role: 'assistant', content: `Great! I've processed your recipient list. ${recipients.length} recipients have been added to your campaign. Your campaign is now ready to go. Would you like to schedule it for later or send it right away?` }
+        ])
+        setCurrentStep(6)
       }
       reader.readAsText(file)
+    } else {
+      setMessages(prev => [...prev, 
+        { role: 'user', content: 'No file uploaded' },
+        { role: 'assistant', content: "I'm sorry, but no file was uploaded. Would you like to try uploading the recipient list again?" }
+      ])
     }
-
-    setMessages(prev => [...prev, 
-      { role: 'user', content: file ? `Uploaded ${file.name}` : 'No file uploaded' },
-      { role: 'assistant', content: "Great! I've processed your recipient list. Your campaign is now ready to go. Would you like to schedule it for later or send it right away?" }
-    ])
-    setCurrentStep(6)
   }
 
   const handleScheduleCampaign = async (scheduleType: 'now' | 'tomorrow' | 'in2days' | 'custom') => {
@@ -593,15 +674,18 @@ export default function EnhancedEmailCampaignGenerator() {
         scheduledDateTime: scheduledDateTime?.toISOString(),
       })
 
+      console.log("New campaign object:", newCampaign)  // Log for debugging
+
       setMessages(prev => [...prev, 
         { role: 'assistant', content: scheduledDateTime
-          ? `Great! Your campaign "${newCampaign.name}" has been scheduled for ${scheduledDateTime.toLocaleString()}. Is there anything else I can help you with?`
-          : `Excellent! Your campaign "${newCampaign.name}" has been created and will be sent shortly. Is there anything else you'd like to do?`
+          ? `Great! Your campaign "${newCampaign.name}" has been scheduled for ${scheduledDateTime.toLocaleString()}. It will be sent to ${campaignData.recipients.length} recipients. Is there anything else I can help you with?`
+          : `Excellent! Your campaign "${newCampaign.name}" has been created and will be sent shortly to ${campaignData.recipients.length} recipients. Is there anything else you'd like to do?`
         }
       ])
       setCurrentStep(0)
       setCurrentAction(null)
       setIsFormVisible(false)
+      setIsCreatingCampaign(false)
     } catch (error) {
       console.error('Error saving campaign:', error)
       setMessages(prev => [...prev, 
@@ -636,23 +720,63 @@ export default function EnhancedEmailCampaignGenerator() {
 
     switch (field) {
       case 'description':
-        setStatusUpdate("Generating template based on description...");
+        if (value.length > 5) {
+          try {
+            setStatusUpdate("Generating template based on description...");
+            const generatedTemplate = await generateTemplate(value);
+            
+            // Clean up the subject by removing "Subject:" prefix and any asterisks
+            const cleanSubject = generatedTemplate.subject
+              .replace(/^Subject:\s*/i, '')
+              .replace(/\*\*/g, '')
+              .replace(/<[^>]*>/g, '')
+              .trim();
+
+            // Clean up the body by removing "Body:" prefix and any asterisks
+            const cleanBody = generatedTemplate.body
+              .replace(/^\*\*Body\*\*:\s*/i, '')
+              .replace(/\*\*/g, '')
+              .trim();
+
+            setTemplateData(prev => ({
+              ...prev,
+              subject: cleanSubject,
+              body: cleanBody,
+            }));
+            setStatusUpdate("Template generated. Please review and make any necessary changes.");
+            nextStep = 2; // Move to the next step to show the generated template
+          } catch (error) {
+            console.error('Error generating template:', error);
+            setStatusUpdate("Error generating template. Please try again or enter details manually.");
+            nextStep = currentStep; // Stay on the same step
+          }
+        } else {
+          setStatusUpdate("Please provide a more detailed description (more than 5 characters) to generate a template.");
+          nextStep = currentStep; // Stay on the same step
+        }
         break;
       case 'name':
-        setStatusUpdate("Saving template...");
-        setIsCreatingTemplate(false);
-        setCurrentStep(0);
-        setIsFormVisible(false);
-        setMessages(prev => [...prev, 
-          { role: 'assistant', content: `Great! Your template "${value}" has been saved. Is there anything else I can help you with?` }
-        ]);
-        setTemplateData({
-          name: '',
-          description: '',
-          subject: '',
-          body: '',
-        });
-        return;
+        if (value.trim()) {
+          setStatusUpdate("Saving template...");
+          await saveTemplate(value, templateData.subject, templateData.body);
+          setIsCreatingTemplate(false);
+          setCurrentStep(0);
+          setIsFormVisible(false);
+          setMessages(prev => [...prev, 
+            { role: 'assistant', content: `Great! Your template "${value}" has been saved. Is there anything else I can help you with?` }
+          ]);
+          setTemplateData({
+            name: '',
+            description: '',
+            subject: '',
+            body: '',
+          });
+          return;
+        } else {
+          setStatusUpdate("Please provide a name for your template before saving.");
+          nextStep = currentStep; // Stay on the same step
+        }
+        break;
       default:
         break;
     }
@@ -690,9 +814,10 @@ export default function EnhancedEmailCampaignGenerator() {
           className="hidden lg:block"
         />
         
-        <main className="flex-1 p-4 lg:p-8 overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
-          <div className="max-w-7xl mx-auto">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <main className="flex-1 p-4 lg:p-8 overflow-hidden bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+          <div className="max-w-7xl mx-auto h-full flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
               <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden">
                 <Menu className="h-6 w-6" />
               </Button>
@@ -720,9 +845,11 @@ export default function EnhancedEmailCampaignGenerator() {
               </div>
             </div>
             
-            <div className="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6">
-              <div className={`flex-1 flex flex-col overflow-hidden text-foreground rounded-lg bg-white dark:bg-gray-800 shadow-lg ${isFormVisible ? 'lg:w-2/3' : 'w-full'}`}>
-                <div className="flex-1 flex flex-col p-6 space-y-6">
+            {/* Main content */}
+            <div className="flex flex-1 space-x-6 overflow-hidden">
+              {/* Chat area */}
+              <div className={`flex-1 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-lg ${isFormVisible ? 'lg:w-2/3' : 'w-full'}`}>
+                <div className="flex-1 flex flex-col p-6 overflow-hidden">
                   <div className="flex-1 overflow-y-auto space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--scrollbar) var(--scrollbar-bg)' }}>
                     {messages.map((message, index) => (
                       <motion.div
@@ -744,34 +871,35 @@ export default function EnhancedEmailCampaignGenerator() {
                     <div ref={chatEndRef} />
                   </div>
 
-                  {currentStep === 0 && (
-                    <form onSubmit={handleSubmit} className="mt-auto w-full">
-                      <div className="relative">
-                        <Textarea
-                          value={input}
-                          onChange={(e) => setInput(e.target.value)}
-                          placeholder="Ask me anything about email campaigns..."
-                          className="pr-12 py-3 text-sm min-h-[100px] resize-none bg-background border-input focus:border-ring focus:ring-ring rounded-lg w-full"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSubmit(e);
-                            }
-                          }}
-                        />
-                        <Button 
-                          type="submit" 
-                          disabled={isLoading} 
-                          className="absolute right-2 bottom-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-2 transition-colors duration-200"
-                        >
-                          {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                        </Button>
-                      </div>
-                    </form>
-                  )}
+                  {/* Always show the chat input, but disable it when forms are visible */}
+                  <form onSubmit={handleSubmit} className="mt-4 w-full">
+                    <div className="relative">
+                      <Textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder={isFormVisible ? "Please complete the form on the right..." : "Ask me anything about email campaigns..."}
+                        className="pr-12 py-3 text-sm min-h-[100px] resize-none bg-background border-input focus:border-ring focus:ring-ring rounded-lg w-full"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey && !isFormVisible) {
+                            e.preventDefault();
+                            handleSubmit(e);
+                          }
+                        }}
+                        disabled={isFormVisible}
+                      />
+                      <Button 
+                        type="submit" 
+                        disabled={isLoading || isFormVisible}
+                        className="absolute right-2 bottom-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-2 transition-colors duration-200"
+                      >
+                        {isLoading ? <InfinityLoader /> : <Send className="h-5 w-5" />}
+                      </Button>
+                    </div>
+                  </form>
                 </div>
               </div>
 
+              {/* Right panel */}
               {isFormVisible && (
                 <motion.div 
                   initial={{ opacity: 0, x: 20 }}
@@ -792,6 +920,9 @@ export default function EnhancedEmailCampaignGenerator() {
                     setTemplateData={setTemplateData}
                     statusUpdate={statusUpdate}
                     setStatusUpdate={setStatusUpdate}
+                    handleScheduleCampaign={handleScheduleCampaign}
+                    handleCustomDateTimeSubmit={handleCustomDateTimeSubmit}
+                    handleFileUpload={handleFileUpload}
                   />
                 </motion.div>
               )}
