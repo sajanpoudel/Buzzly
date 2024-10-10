@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitialsFromEmail } from '@/utils/stringUtils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { handleKeyboardShortcut, SHORTCUTS } from '@/utils/keyboardShortcuts'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -62,6 +63,7 @@ export default function EnhancedEmailCampaignGenerator() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null)
   const [isFormVisible, setIsFormVisible] = useState(false)
+  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false)
 
   const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
@@ -105,10 +107,44 @@ export default function EnhancedEmailCampaignGenerator() {
     fetchUserInfo();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      handleKeyboardShortcut(event as unknown as React.KeyboardEvent<Element>, {
+        'cmd+t': () => {
+          if (!isCreatingCampaign) {
+            startCampaignCreation();
+          }
+        },
+        'cmd+k': () => {
+          // Implement command palette functionality here
+          console.log('Command palette opened');
+        },
+        'esc': handleCancel,
+      });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCreatingCampaign]); // Add isCreatingCampaign to the dependency array
+
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
   }
+
+  const startCampaignCreation = () => {
+    setIsCreatingCampaign(true);
+    setCurrentAction('createCampaign');
+    setCurrentStep(1);
+    setIsFormVisible(true);
+    setMessages(prev => [...prev, 
+      { role: 'user', content: "I want to create a campaign" },
+      { role: 'assistant', content: "Certainly! Let's create a new campaign. What would you like to name your campaign?" }
+    ]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,10 +158,8 @@ export default function EnhancedEmailCampaignGenerator() {
       const response = await handleUserInput(input)
       setMessages(prev => [...prev, { role: 'assistant', content: response }])
       
-      if (response.includes("Let's create a new campaign")) {
-        setCurrentAction('createCampaign')
-        setCurrentStep(1)
-        setIsFormVisible(true)
+      if (response.includes("Let's create a new campaign") && !isCreatingCampaign) {
+        startCampaignCreation();
       }
     } catch (error) {
       console.error('Error handling user input:', error)
@@ -321,6 +355,7 @@ Would you like to make any changes to this template?`;
       template: null
     })
     setIsFormVisible(false)
+    setIsCreatingCampaign(false) // Reset the campaign creation state
     setMessages(prev => [...prev, 
       { role: 'assistant', content: "I've cancelled the current action. What else can I help you with?" }
     ])
@@ -441,51 +476,63 @@ Would you like to make any changes to this template?`;
   }
 
   return (
-    <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
-
-    <div className="flex flex-1 overflow-hidden">
-      <Sidebar 
-        darkMode={darkMode} 
-        toggleDarkMode={toggleDarkMode}
-        isMobileMenuOpen={isMobileMenuOpen}
-        setIsMobileMenuOpen={setIsMobileMenuOpen}
-        className="hidden lg:block"
-      />
-     
+    <div 
+      className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}
+      tabIndex={0}
+      onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => handleKeyboardShortcut(e, {
+        'cmd+t': () => {
+          if (!isCreatingCampaign) {
+            startCampaignCreation();
+          }
+        },
+        'cmd+k': () => {
+          console.log('Command palette opened');
+        },
+        'esc': handleCancel,
+      })}
+    >
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar 
+          darkMode={darkMode} 
+          toggleDarkMode={toggleDarkMode}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+          className="hidden lg:block"
+        />
         
         <main className="flex-1 p-4 lg:p-8 overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
           <div className="max-w-7xl mx-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden">
-            <Menu className="h-6 w-6" />
-          </Button>
-          <h1 className="text-xl font-bold text-foreground">AI Campaign Assistant</h1>
-          <div className="flex items-center space-x-4">
-            <div className="relative w-full lg:w-96 hidden lg:block">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Filter by name or description..." className="pl-8 w-full" />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+              <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden">
+                <Menu className="h-6 w-6" />
+              </Button>
+              <h1 className="text-xl font-bold text-foreground">AI Campaign Assistant</h1>
+              <div className="flex items-center space-x-4">
+                <div className="relative w-full lg:w-96 hidden lg:block">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Filter by name or description..." className="pl-8 w-full" />
+                </div>
+                <Button variant="ghost" size="icon" className="hidden lg:inline-flex">
+                  <Bell className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
+                  {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </Button>
+                <Avatar>
+                  {userInfo && userInfo.picture ? (
+                    <AvatarImage src={userInfo.picture} alt={userInfo.name || userInfo.email} />
+                  ) : (
+                    <AvatarFallback>
+                      {userInfo ? getInitialsFromEmail(userInfo.email) : 'U'}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+              </div>
             </div>
-            <Button variant="ghost" size="icon" className="hidden lg:inline-flex">
-              <Bell className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
-            <Avatar>
-              {userInfo && userInfo.picture ? (
-                <AvatarImage src={userInfo.picture} alt={userInfo.name || userInfo.email} />
-              ) : (
-                <AvatarFallback>
-                  {userInfo ? getInitialsFromEmail(userInfo.email) : 'U'}
-                </AvatarFallback>
-              )}
-            </Avatar>
-          </div>
-        </div>
             
-            <div className="flex-1 flex flex-col overflow-hidden  text-foreground rounded-lg">
-              <div className="flex-1 flex flex-col  p-6 space-y-6">
-                <div className="flex-1 overflow-y-auto  space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--scrollbar) var(--scrollbar-bg)' }}>
+            <div className="flex flex-col overflow-hidden text-foreground rounded-lg">
+              <div className="flex-1 flex flex-col p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--scrollbar) var(--scrollbar-bg)' }}>
                   {messages.map((message, index) => (
                     <motion.div
                       key={index}
@@ -505,14 +552,15 @@ Would you like to make any changes to this template?`;
                   ))}
                   <div ref={chatEndRef} />
                 </div>
-                <div className="flex justify-start">
-                <div className="flex-2 w-[500px] justify-start space-y-6">                <AnimatePresence>
+                
+                <AnimatePresence>
                   {isFormVisible && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
+                      className="w-full max-w-2xl mx-auto"
                     >
                       {renderCurrentStep()}
                     </motion.div>
@@ -520,7 +568,7 @@ Would you like to make any changes to this template?`;
                 </AnimatePresence>
 
                 {currentStep === 0 && (
-                  <form onSubmit={handleSubmit} className="mt-auto">
+                  <form onSubmit={handleSubmit} className="mt-auto w-full">
                     <div className="relative">
                       <Textarea
                         value={input}
@@ -544,16 +592,11 @@ Would you like to make any changes to this template?`;
                     </div>
                   </form>
                 )}
-                </div>
-                </div>
-              
               </div>
             </div>
           </div>
         </main>
       </div>
-
-    
     </div>
   )
 }
