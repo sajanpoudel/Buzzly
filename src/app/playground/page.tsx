@@ -49,6 +49,18 @@ interface TemplateData {
   body: string;
 }
 
+const StatusUpdate = ({ message }: { message: string }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -20 }}
+    className="flex items-center space-x-2 text-sm text-muted-foreground"
+  >
+    <Loader2 className="h-4 w-4 animate-spin" />
+    <span>{message}</span>
+  </motion.div>
+);
+
 const RightPanel = ({ 
   isCreatingCampaign, 
   isCreatingTemplate, 
@@ -59,7 +71,9 @@ const RightPanel = ({
   handleTemplateInput,
   handleCancel,
   setCampaignData,
-  setTemplateData
+  setTemplateData,
+  statusUpdate,
+  setStatusUpdate
 }: {
   isCreatingCampaign: boolean;
   isCreatingTemplate: boolean;
@@ -71,6 +85,8 @@ const RightPanel = ({
   handleCancel: () => void;
   setCampaignData: React.Dispatch<React.SetStateAction<CampaignData>>;
   setTemplateData: React.Dispatch<React.SetStateAction<TemplateData>>;
+  statusUpdate: string | null;
+  setStatusUpdate: React.Dispatch<React.SetStateAction<string | null>>;
 }) => {
   const [showPreview, setShowPreview] = useState(false);
 
@@ -224,20 +240,66 @@ const RightPanel = ({
     return null;
   };
 
+  useEffect(() => {
+    if (isCreatingCampaign) {
+      switch (currentStep) {
+        case 1:
+          setStatusUpdate("Creating new campaign...");
+          break;
+        case 2:
+          setStatusUpdate("Selecting campaign type...");
+          break;
+        case 3:
+          setStatusUpdate("Crafting email subject...");
+          break;
+        case 4:
+          setStatusUpdate("Composing email body...");
+          break;
+        case 5:
+          setStatusUpdate("Uploading recipient list...");
+          break;
+        default:
+          setStatusUpdate(null);
+      }
+    } else if (isCreatingTemplate) {
+      switch (currentStep) {
+        case 1:
+          setStatusUpdate("Generating template based on description...");
+          break;
+        case 2:
+          setStatusUpdate("Finalizing template details...");
+          break;
+        default:
+          setStatusUpdate(null);
+      }
+    } else {
+      setStatusUpdate(null);
+    }
+  }, [currentStep, isCreatingCampaign, isCreatingTemplate]);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">
-          {isCreatingCampaign ? 'Create Campaign' : 'Create Template'}
+          {isCreatingCampaign ? 'Create Campaign' : isCreatingTemplate ? 'Create Template' : 'Assistant'}
         </h2>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Preview</span>
-          <Switch
-            checked={showPreview}
-            onCheckedChange={setShowPreview}
-          />
-        </div>
+        {(isCreatingCampaign || isCreatingTemplate) && (
+          <div className="flex items-center space-x-2">
+            <span className="text-sm">Preview</span>
+            <Switch
+              checked={showPreview}
+              onCheckedChange={setShowPreview}
+            />
+          </div>
+        )}
       </div>
+      
+      <AnimatePresence>
+        {statusUpdate && (
+          <StatusUpdate message={statusUpdate} />
+        )}
+      </AnimatePresence>
+
       {showPreview ? renderPreview() : renderForm()}
     </div>
   );
@@ -274,6 +336,7 @@ export default function EnhancedEmailCampaignGenerator() {
   const [isFormVisible, setIsFormVisible] = useState(false)
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false)
   const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+  const [statusUpdate, setStatusUpdate] = useState<string | null>(null);
 
   const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
@@ -427,37 +490,31 @@ export default function EnhancedEmailCampaignGenerator() {
 
   const handleInputSubmit = (field: keyof CampaignData) => {
     const value = campaignData[field];
-    let nextPrompt = '';
     let nextStep = currentStep + 1;
 
     switch (field) {
       case 'name':
-        nextPrompt = `Great! Your campaign name is "${value}". Now, let's choose the type of campaign. What type of campaign would you like to create?`;
+        setStatusUpdate("Campaign name set. Selecting type...");
         break;
       case 'type':
-        nextPrompt = `Excellent choice. For the "${campaignData.name}" ${value} campaign, what's the subject line?`;
+        setStatusUpdate("Campaign type selected. Crafting subject...");
         break;
       case 'subject':
-        nextPrompt = "Great! Now, let's craft the body of your email. What message would you like to convey?";
+        setStatusUpdate("Subject created. Composing email body...");
         break;
       case 'body':
-        nextPrompt = "Perfect! Now, let's upload a CSV file with your recipient list.";
+        setStatusUpdate("Email body composed. Preparing recipient list...");
         break;
       case 'recipients':
-        nextPrompt = "Great! Your recipient list has been uploaded. Would you like to schedule this campaign or send it right away?";
-        nextStep = 0; // Return to chat mode for scheduling options
+        setStatusUpdate("Recipient list uploaded. Finalizing campaign...");
+        nextStep = 0;
         setIsFormVisible(false);
         setIsCreatingCampaign(false);
         break;
       default:
-        nextPrompt = "What would you like to do next?";
         nextStep = currentStep;
     }
 
-    setMessages(prev => [...prev, 
-      { role: 'user', content: String(value) },
-      { role: 'assistant', content: nextPrompt }
-    ]);
     setCurrentStep(nextStep);
   }
 
@@ -579,62 +636,25 @@ export default function EnhancedEmailCampaignGenerator() {
 
     switch (field) {
       case 'description':
-        if (value.length > 5) {
-          try {
-            const generatedTemplate = await generateTemplate(value);
-            
-            // Clean up the subject by removing "Subject:" prefix and any asterisks
-            const cleanSubject = generatedTemplate.subject
-              .replace(/^Subject:\s*/i, '')
-              .replace(/\*\*/g, '')
-              .replace(/<[^>]*>/g, '')
-              .trim();
-
-            // Clean up the body by removing "Body:" prefix and any asterisks
-            const cleanBody = generatedTemplate.body
-              .replace(/^\*\*Body\*\*:\s*/i, '')
-              .replace(/\*\*/g, '')
-              .trim();
-
-            setTemplateData(prev => ({
-              ...prev,
-              subject: cleanSubject,
-              body: cleanBody,
-            }));
-            nextStep = 2; // Move to the next step to show the generated template
-          } catch (error) {
-            console.error('Error generating template:', error);
-            nextStep = currentStep; // Stay on the same step
-          }
-        } else {
-          nextStep = currentStep; // Stay on the same step
-        }
+        setStatusUpdate("Generating template based on description...");
         break;
       case 'name':
-        if (value.trim()) {
-          await saveTemplate(value, templateData.subject, templateData.body);
-          setIsCreatingTemplate(false);
-          setCurrentStep(0);
-          setIsFormVisible(false);
-          // Add a message to indicate the template was saved
-          setMessages(prev => [...prev, 
-            { role: 'assistant', content: `Great! Your template "${value}" has been saved. Is there anything else I can help you with?` }
-          ]);
-          // Reset template data
-          setTemplateData({
-            name: '',
-            description: '',
-            subject: '',
-            body: '',
-          });
-          // Return to chat area
-          return;
-        } else {
-          nextStep = currentStep; // Stay on the same step
-        }
-        break;
+        setStatusUpdate("Saving template...");
+        setIsCreatingTemplate(false);
+        setCurrentStep(0);
+        setIsFormVisible(false);
+        setMessages(prev => [...prev, 
+          { role: 'assistant', content: `Great! Your template "${value}" has been saved. Is there anything else I can help you with?` }
+        ]);
+        setTemplateData({
+          name: '',
+          description: '',
+          subject: '',
+          body: '',
+        });
+        return;
       default:
-        nextStep = currentStep;
+        break;
     }
 
     setCurrentStep(nextStep);
@@ -701,7 +721,7 @@ export default function EnhancedEmailCampaignGenerator() {
             </div>
             
             <div className="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6">
-              <div className="flex-1 flex flex-col overflow-hidden text-foreground rounded-lg bg-white dark:bg-gray-800 shadow-lg">
+              <div className={`flex-1 flex flex-col overflow-hidden text-foreground rounded-lg bg-white dark:bg-gray-800 shadow-lg ${isFormVisible ? 'lg:w-2/3' : 'w-full'}`}>
                 <div className="flex-1 flex flex-col p-6 space-y-6">
                   <div className="flex-1 overflow-y-auto space-y-4 pr-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--scrollbar) var(--scrollbar-bg)' }}>
                     {messages.map((message, index) => (
@@ -752,20 +772,29 @@ export default function EnhancedEmailCampaignGenerator() {
                 </div>
               </div>
 
-              <div className="w-full lg:w-1/3 flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 overflow-y-auto">
-                <RightPanel 
-                  isCreatingCampaign={isCreatingCampaign}
-                  isCreatingTemplate={isCreatingTemplate}
-                  campaignData={campaignData}
-                  templateData={templateData}
-                  currentStep={currentStep}
-                  handleInputSubmit={handleInputSubmit}
-                  handleTemplateInput={handleTemplateInput}
-                  handleCancel={handleCancel}
-                  setCampaignData={setCampaignData}
-                  setTemplateData={setTemplateData}
-                />
-              </div>
+              {isFormVisible && (
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="w-full lg:w-1/3 flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 overflow-y-auto"
+                >
+                  <RightPanel 
+                    isCreatingCampaign={isCreatingCampaign}
+                    isCreatingTemplate={isCreatingTemplate}
+                    campaignData={campaignData}
+                    templateData={templateData}
+                    currentStep={currentStep}
+                    handleInputSubmit={handleInputSubmit}
+                    handleTemplateInput={handleTemplateInput}
+                    handleCancel={handleCancel}
+                    setCampaignData={setCampaignData}
+                    setTemplateData={setTemplateData}
+                    statusUpdate={statusUpdate}
+                    setStatusUpdate={setStatusUpdate}
+                  />
+                </motion.div>
+              )}
             </div>
           </div>
         </main>
