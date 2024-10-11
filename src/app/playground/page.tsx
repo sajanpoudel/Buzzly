@@ -455,7 +455,11 @@ const RightPanel = ({
   );
 };
 
-export default function EnhancedEmailCampaignGenerator({ searchParams }: { searchParams?: { [key: string]: string | string[] | undefined } }) {
+type PageProps = {
+  searchParams?: { [key: string]: string | string[] | undefined };
+};
+
+export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: PageProps) {
   const [darkMode, setDarkMode] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: "Hello! I'm your AI assistant for email campaigns. How can I help you today?" }
