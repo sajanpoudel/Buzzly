@@ -634,18 +634,34 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     setIsLoading(true)
 
     try {
-      const response = await handleUserInput(input)
-      setMessages(prev => [...prev, { role: 'assistant', content: response }])
-      
-      if (response.includes("Let's create a new campaign") && !isCreatingCampaign) {
-        startCampaignCreation();
-      }
-    } catch (error) {
-      console.error('Error handling user input:', error)
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }])
-    }
+      const response = await handleUserInput(input, {
+        startCampaignCreation: () => {
+          setIsCreatingCampaign(true);
+          setIsFormVisible(true);
+          setCurrentStep(1);
+        },
+        startEmailCreation: () => {
+          setIsCreatingEmail(true);
+          setIsFormVisible(true);
+          setCurrentStep(1);
+        },
+        openPaymentForm: () => {
+          setIsPaymentFormVisible(true);
+        },
+        startTemplateCreation: () => {
+          setIsCreatingTemplate(true);
+          setIsFormVisible(true);
+          setCurrentStep(1);
+        },
+      });
 
-    setIsLoading(false)
+      setMessages(prev => [...prev, { role: 'assistant', content: response }])
+    } catch (error) {
+      console.error('Error in handleSubmit:', error)
+      setMessages(prev => [...prev, { role: 'assistant', content: 'I apologize, but I encountered an error. Could you please try asking your question in a different way?' }])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleCampaignInput = (field: keyof CampaignData) => {
