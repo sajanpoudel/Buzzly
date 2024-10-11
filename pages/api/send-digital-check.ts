@@ -29,12 +29,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  const { recipient, amount, description } = req.body;
+  const { recipient, email, amount, description } = req.body;
+
+  if (!email || !amount) {
+    return res.status(400).json({ message: 'Email and amount are required' });
+  }
 
   try {
     const result = await sendDigitalCheck(
       recipient,
-      recipient, // Using the same value for name and email
+      email,
       amount,
       description
     );

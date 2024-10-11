@@ -29,6 +29,7 @@ import { CampaignCreationData } from '@/types/campaign';  // Adjust the import p
 import { SendPaymentForm, PaymentData } from '@/components/SendPaymentForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import Image from 'next/image'
+import Papa from 'papaparse';
 
 interface Message {
   role: 'user' | 'assistant'
@@ -1012,23 +1013,64 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     if (!pendingPaymentData) return;
 
     try {
-      const response = await fetch('/api/send-digital-check', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(pendingPaymentData),
-      });
+      let recipients: { name: string; email: string; amount: number }[] = [];
 
-      if (!response.ok) {
-        throw new Error('Payment failed');
+      if (pendingPaymentData.isMultipleRecipients && pendingPaymentData.csvFile) {
+        const csvData = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (e.target && typeof e.target.result === 'string') {
+              resolve(e.target.result);
+            } else {
+              reject(new Error('Failed to read CSV file'));
+            }
+          };
+          reader.onerror = () => reject(new Error('Failed to read CSV file'));
+          if (pendingPaymentData.csvFile) {
+            reader.readAsText(pendingPaymentData.csvFile);
+          } else {
+            reject(new Error('CSV file is undefined'));
+          }
+        });
+
+        const { data } = Papa.parse(csvData, { header: true });
+        recipients = data.map((row: any) => ({
+          name: row.name || '',
+          email: row.email || '',
+          amount: parseFloat(row.amount) || 0,
+        })).filter(recipient => recipient.email && recipient.amount > 0);
+      } else {
+        recipients = [{ name: pendingPaymentData.recipient, email: pendingPaymentData.recipient, amount: pendingPaymentData.amount }];
       }
 
-      const result = await response.json();
-      console.log('Payment result:', result);
+      const results = await Promise.all(recipients.map(async (recipient) => {
+        const response = await fetch('/api/send-digital-check', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recipient: recipient.name,
+            email: recipient.email,
+            amount: recipient.amount,
+            description: pendingPaymentData.description,
+            paymentType: pendingPaymentData.paymentType,
+          }),
+        });
 
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Payment failed for ${recipient.email}: ${errorData.message}`);
+        }
+
+        return response.json();
+      }));
+
+      console.log('Payment results:', results);
+
+      const totalAmount = results.reduce((sum, result) => sum + result.result.amount, 0);
       setMessages(prev => [...prev, 
-        { role: 'assistant', content: `${pendingPaymentData.paymentType.toUpperCase()} payment of $${pendingPaymentData.amount} sent successfully to ${pendingPaymentData.recipient}. Transaction ID: ${result.result.id}` }
+        { role: 'assistant', content: `${pendingPaymentData.paymentType.toUpperCase()} payments sent successfully to ${results.length} recipient(s). Total amount: $${totalAmount.toFixed(2)}` }
       ]);
 
       setIsPaymentFormVisible(false);
@@ -1036,7 +1078,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     } catch (error) {
       console.error('Error sending payment:', error);
       setMessages(prev => [...prev, 
-        { role: 'assistant', content: `I'm sorry, but there was an error sending the ${pendingPaymentData.paymentType.toUpperCase()} payment: ${error instanceof Error ? error.message : 'Unknown error'}. Can I help you troubleshoot or try again?` }
+        { role: 'assistant', content: `I'm sorry, but there was an error sending the ${pendingPaymentData.paymentType.toUpperCase()} payment(s): ${error instanceof Error ? error.message : 'Unknown error'}. Can I help you troubleshoot or try again?` }
       ]);
       setIsConfirmationDialogOpen(false);
     }
@@ -1230,7 +1272,10 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
           <DialogHeader>
             <DialogTitle>Confirm Payment</DialogTitle>
             <DialogDescription>
-              Are you sure you want to send ${pendingPaymentData?.amount} to {pendingPaymentData?.recipient} via {pendingPaymentData?.paymentType.toUpperCase()}?
+              {pendingPaymentData?.isMultipleRecipients
+                ? `Are you sure you want to send payments to multiple recipients via ${pendingPaymentData.paymentType.toUpperCase()}?`
+                : `Are you sure you want to send $${pendingPaymentData?.amount} to ${pendingPaymentData?.recipient} via ${pendingPaymentData?.paymentType.toUpperCase()}?`
+              }
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

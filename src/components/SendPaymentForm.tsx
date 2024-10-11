@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 interface SendPaymentFormProps {
   onSubmit: (paymentData: PaymentData) => void;
@@ -13,6 +14,8 @@ export interface PaymentData {
   amount: number;
   description: string;
   paymentType: 'check' | 'ach';
+  isMultipleRecipients: boolean;
+  csvFile?: File;
 }
 
 export function SendPaymentForm({ onSubmit }: SendPaymentFormProps) {
@@ -21,6 +24,7 @@ export function SendPaymentForm({ onSubmit }: SendPaymentFormProps) {
     amount: 0,
     description: '',
     paymentType: 'check',
+    isMultipleRecipients: false,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,29 +32,63 @@ export function SendPaymentForm({ onSubmit }: SendPaymentFormProps) {
     onSubmit(paymentData);
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPaymentData(prev => ({ ...prev, csvFile: file }));
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="recipient">Recipient Name or Email</Label>
-        <Input
-          id="recipient"
-          value={paymentData.recipient}
-          onChange={(e) => setPaymentData({ ...paymentData, recipient: e.target.value })}
-          required
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="multiple-recipients"
+          checked={paymentData.isMultipleRecipients}
+          onCheckedChange={(checked) => setPaymentData(prev => ({ ...prev, isMultipleRecipients: checked }))}
         />
+        <Label htmlFor="multiple-recipients">Multiple Recipients</Label>
       </div>
-      <div>
-        <Label htmlFor="amount">Amount (USD)</Label>
-        <Input
-          id="amount"
-          type="number"
-          value={paymentData.amount}
-          onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) })}
-          required
-          min="0.01"
-          step="0.01"
-        />
-      </div>
+
+      {!paymentData.isMultipleRecipients && (
+        <>
+          <div>
+            <Label htmlFor="recipient">Recipient Name or Email</Label>
+            <Input
+              id="recipient"
+              value={paymentData.recipient}
+              onChange={(e) => setPaymentData({ ...paymentData, recipient: e.target.value })}
+              required={!paymentData.isMultipleRecipients}
+            />
+          </div>
+          <div>
+            <Label htmlFor="amount">Amount (USD)</Label>
+            <Input
+              id="amount"
+              type="number"
+              value={paymentData.amount}
+              onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) })}
+              required
+              min="0.01"
+              step="0.01"
+            />
+          </div>
+        </>
+      )}
+
+      {paymentData.isMultipleRecipients && (
+        <div>
+          <Label htmlFor="csv-upload">Upload CSV File</Label>
+          <Input
+            id="csv-upload"
+            type="file"
+            accept=".csv"
+            onChange={handleFileUpload}
+            required={paymentData.isMultipleRecipients}
+          />
+        </div>
+      )}
+
       <div>
         <Label htmlFor="description">Description</Label>
         <Input
