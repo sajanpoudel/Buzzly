@@ -31,7 +31,7 @@ export function SendPaymentForm({ onSubmit }: SendPaymentFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="recipient">Recipient Name</Label>
+        <Label htmlFor="recipient">Recipient Name or Email</Label>
         <Input
           id="recipient"
           value={paymentData.recipient}

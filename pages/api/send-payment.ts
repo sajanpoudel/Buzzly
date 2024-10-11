@@ -1,38 +1,38 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import axios from 'axios';
+import CheckbookAPI from 'checkbook-api';
 
-const CHECKBOOK_API_KEY = process.env.CHECKBOOK_API_KEY;
-const CHECKBOOK_API_SECRET = process.env.CHECKBOOK_API_SECRET;
-const CHECKBOOK_API_URL = process.env.CHECKBOOK_API_URL || 'https://sandbox.checkbook.io/v3/check';
+const Checkbook = new CheckbookAPI({
+  api_key: process.env.CHECKBOOK_API_KEY,
+  api_secret: process.env.CHECKBOOK_API_SECRET,
+  env: 'sandbox'
+});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  const { recipient, amount, description, paymentType } = req.body;
+  const { recipient, amount, description } = req.body;
 
   try {
-    const response = await axios.post(
-      CHECKBOOK_API_URL,
-      {
+    const result = await new Promise((resolve, reject) => {
+      Checkbook.checks.sendDigitalCheck({
+        name: recipient,
         recipient: recipient,
-        name: 'Your Company Name',
-        amount: amount,
         description: description,
-        type: paymentType === 'ach' ? 'ACH' : 'CHECK',
-      },
-      {
-        auth: {
-          username: CHECKBOOK_API_KEY!,
-          password: CHECKBOOK_API_SECRET!,
-        },
-      }
-    );
+        amount: amount
+      }, (error: any, response: any) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(response);
+        }
+      });
+    });
 
-    res.status(200).json({ transactionId: response.data.id });
+    res.status(200).json({ message: 'Payment sent successfully', result });
   } catch (error) {
     console.error('Error sending payment:', error);
-    res.status(500).json({ message: 'Error sending payment' });
+    res.status(500).json({ message: 'Error sending payment', error: error instanceof Error ? error.message : 'Unknown error' });
   }
 }

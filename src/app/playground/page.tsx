@@ -27,6 +27,8 @@ import { generateTemplate, saveTemplate } from '@/functionCalling/templateFuncti
 import { Switch } from "@/components/ui/switch"
 import { CampaignCreationData } from '@/types/campaign';  // Adjust the import path as necessary
 import { SendPaymentForm, PaymentData } from '@/components/SendPaymentForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import Image from 'next/image'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -146,7 +148,42 @@ const RightPanel = ({
   handleEmailInput: (field: keyof EmailData) => void;
   setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
 }) => {
-  const [showPreview, setShowPreview] = useState(false);
+  useEffect(() => {
+    if (isCreatingCampaign) {
+      switch (currentStep) {
+        case 1:
+          setStatusUpdate("Creating new campaign...");
+          break;
+        case 2:
+          setStatusUpdate("Selecting campaign type...");
+          break;
+        case 3:
+          setStatusUpdate("Crafting email subject...");
+          break;
+        case 4:
+          setStatusUpdate("Composing email body...");
+          break;
+        case 5:
+          setStatusUpdate("Uploading recipient list...");
+          break;
+        default:
+          setStatusUpdate(null);
+      }
+    } else if (isCreatingTemplate) {
+      switch (currentStep) {
+        case 1:
+          setStatusUpdate("Generating template based on description...");
+          break;
+        case 2:
+          setStatusUpdate("Finalizing template details...");
+          break;
+        default:
+          setStatusUpdate(null);
+      }
+    } else {
+      setStatusUpdate(null);
+    }
+  }, [currentStep, isCreatingCampaign, isCreatingTemplate]);
 
   const renderButtons = (onNext: () => void) => (
     <div className="flex space-x-4 mt-4">
@@ -164,36 +201,6 @@ const RightPanel = ({
       </Button>
     </div>
   );
-
-  const renderPreview = () => {
-    if (isCreatingCampaign) {
-      return (
-        <div className="space-y-4">
-          <h3 className="font-semibold">Campaign Preview</h3>
-          <p><strong>Name:</strong> {campaignData.name}</p>
-          <p><strong>Type:</strong> {campaignData.type}</p>
-          <p><strong>Subject:</strong> {campaignData.subject}</p>
-          <div>
-            <strong>Body:</strong>
-            <p className="whitespace-pre-wrap">{campaignData.body}</p>
-          </div>
-        </div>
-      );
-    } else if (isCreatingTemplate) {
-      return (
-        <div className="space-y-4">
-          <h3 className="font-semibold">Template Preview</h3>
-          <p><strong>Name:</strong> {templateData.name}</p>
-          <p><strong>Subject:</strong> {templateData.subject}</p>
-          <div>
-            <strong>Body:</strong>
-            <p className="whitespace-pre-wrap">{templateData.body}</p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   const renderForm = () => {
     if (isCreatingCampaign) {
@@ -429,58 +436,12 @@ const RightPanel = ({
     return null;
   };
 
-  useEffect(() => {
-    if (isCreatingCampaign) {
-      switch (currentStep) {
-        case 1:
-          setStatusUpdate("Creating new campaign...");
-          break;
-        case 2:
-          setStatusUpdate("Selecting campaign type...");
-          break;
-        case 3:
-          setStatusUpdate("Crafting email subject...");
-          break;
-        case 4:
-          setStatusUpdate("Composing email body...");
-          break;
-        case 5:
-          setStatusUpdate("Uploading recipient list...");
-          break;
-        default:
-          setStatusUpdate(null);
-      }
-    } else if (isCreatingTemplate) {
-      switch (currentStep) {
-        case 1:
-          setStatusUpdate("Generating template based on description...");
-          break;
-        case 2:
-          setStatusUpdate("Finalizing template details...");
-          break;
-        default:
-          setStatusUpdate(null);
-      }
-    } else {
-      setStatusUpdate(null);
-    }
-  }, [currentStep, isCreatingCampaign, isCreatingTemplate]);
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">
           {isCreatingCampaign ? 'Create Campaign' : isCreatingTemplate ? 'Create Template' : isCreatingEmail ? 'Send Email' : 'Assistant'}
         </h2>
-        {(isCreatingCampaign || isCreatingTemplate || isCreatingEmail) && (
-          <div className="flex items-center space-x-2">
-            <span className="text-sm">Preview</span>
-            <Switch
-              checked={showPreview}
-              onCheckedChange={setShowPreview}
-            />
-          </div>
-        )}
       </div>
       
       <AnimatePresence>
@@ -489,12 +450,12 @@ const RightPanel = ({
         )}
       </AnimatePresence>
 
-      {showPreview ? renderPreview() : renderForm()}
+      {renderForm()}
     </div>
   );
 };
 
-export default function EnhancedEmailCampaignGenerator() {
+export default function EnhancedEmailCampaignGenerator({ searchParams }: { searchParams?: { [key: string]: string | string[] | undefined } }) {
   const [darkMode, setDarkMode] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: "Hello! I'm your AI assistant for email campaigns. How can I help you today?" }
@@ -535,6 +496,8 @@ export default function EnhancedEmailCampaignGenerator() {
     scheduledDateTime: undefined,
   });
   const [isPaymentFormVisible, setIsPaymentFormVisible] = useState(false);
+  const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<PaymentData | null>(null);
 
   const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
@@ -1036,18 +999,21 @@ export default function EnhancedEmailCampaignGenerator() {
     }
   };
 
-  const handlePaymentSubmit = async (paymentData: PaymentData) => {
+  const handlePaymentSubmit = (paymentData: PaymentData) => {
+    setPendingPaymentData(paymentData);
+    setIsConfirmationDialogOpen(true);
+  };
+
+  const confirmAndSendPayment = async () => {
+    if (!pendingPaymentData) return;
+
     try {
       const response = await fetch('/api/send-digital-check', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          recipient: paymentData.recipient,
-          amount: paymentData.amount,
-          description: paymentData.description,
-        }),
+        body: JSON.stringify(pendingPaymentData),
       });
 
       if (!response.ok) {
@@ -1055,15 +1021,20 @@ export default function EnhancedEmailCampaignGenerator() {
       }
 
       const result = await response.json();
+      console.log('Payment result:', result);
+
       setMessages(prev => [...prev, 
-        { role: 'assistant', content: `Digital check payment of $${paymentData.amount} sent successfully to ${paymentData.recipient}. Transaction details: ${JSON.stringify(result.result)}` }
+        { role: 'assistant', content: `${pendingPaymentData.paymentType.toUpperCase()} payment of $${pendingPaymentData.amount} sent successfully to ${pendingPaymentData.recipient}. Transaction ID: ${result.result.id}` }
       ]);
+
       setIsPaymentFormVisible(false);
+      setIsConfirmationDialogOpen(false);
     } catch (error) {
       console.error('Error sending payment:', error);
       setMessages(prev => [...prev, 
-        { role: 'assistant', content: `I'm sorry, but there was an error sending the digital check payment: ${error instanceof Error ? error.message : 'Unknown error'}. Can I help you troubleshoot or try again?` }
+        { role: 'assistant', content: `I'm sorry, but there was an error sending the ${pendingPaymentData.paymentType.toUpperCase()} payment: ${error instanceof Error ? error.message : 'Unknown error'}. Can I help you troubleshoot or try again?` }
       ]);
+      setIsConfirmationDialogOpen(false);
     }
   };
 
@@ -1233,7 +1204,7 @@ export default function EnhancedEmailCampaignGenerator() {
         </main>
       </div>
 
-      {/* Add this inside the main content area */}
+      {/* Payment form modal */}
       {isPaymentFormVisible && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -1248,6 +1219,22 @@ export default function EnhancedEmailCampaignGenerator() {
           </div>
         </motion.div>
       )}
+
+      {/* Confirmation dialog */}
+      <Dialog open={isConfirmationDialogOpen} onOpenChange={setIsConfirmationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Payment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to send ${pendingPaymentData?.amount} to {pendingPaymentData?.recipient} via {pendingPaymentData?.paymentType.toUpperCase()}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfirmationDialogOpen(false)}>Cancel</Button>
+            <Button onClick={confirmAndSendPayment}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
