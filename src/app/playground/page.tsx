@@ -26,6 +26,7 @@ import { handleKeyboardShortcut, SHORTCUTS } from '@/utils/keyboardShortcuts'
 import { generateTemplate, saveTemplate } from '@/functionCalling/templateFunctions';
 import { Switch } from "@/components/ui/switch"
 import { CampaignCreationData } from '@/types/campaign';  // Adjust the import path as necessary
+import { SendPaymentForm, PaymentData } from '@/components/SendPaymentForm';
 
 interface Message {
   role: 'user' | 'assistant'
@@ -533,6 +534,7 @@ export default function EnhancedEmailCampaignGenerator() {
     recipients: [],
     scheduledDateTime: undefined,
   });
+  const [isPaymentFormVisible, setIsPaymentFormVisible] = useState(false);
 
   const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
@@ -597,6 +599,15 @@ export default function EnhancedEmailCampaignGenerator() {
         'cmd+k': () => {
           console.log('Command palette opened');
         },
+        'cmd+m': () => {
+          if (!isPaymentFormVisible) {
+            setIsPaymentFormVisible(true);
+            setMessages(prev => [...prev, 
+              { role: 'user', content: "I want to send money" },
+              { role: 'assistant', content: "Certainly! I've opened the payment form for you. Please fill in the details to send money." }
+            ]);
+          }
+        },
         'esc': handleCancel,
       });
     };
@@ -606,7 +617,7 @@ export default function EnhancedEmailCampaignGenerator() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isCreatingCampaign, isCreatingTemplate, isCreatingEmail]);
+  }, [isCreatingCampaign, isCreatingTemplate, isCreatingEmail, isPaymentFormVisible]);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
@@ -1025,6 +1036,37 @@ export default function EnhancedEmailCampaignGenerator() {
     }
   };
 
+  const handlePaymentSubmit = async (paymentData: PaymentData) => {
+    try {
+      const response = await fetch('/api/send-digital-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: paymentData.recipient,
+          amount: paymentData.amount,
+          description: paymentData.description,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Payment failed');
+      }
+
+      const result = await response.json();
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `Digital check payment of $${paymentData.amount} sent successfully to ${paymentData.recipient}. Transaction details: ${JSON.stringify(result.result)}` }
+      ]);
+      setIsPaymentFormVisible(false);
+    } catch (error) {
+      console.error('Error sending payment:', error);
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `I'm sorry, but there was an error sending the digital check payment: ${error instanceof Error ? error.message : 'Unknown error'}. Can I help you troubleshoot or try again?` }
+      ]);
+    }
+  };
+
   return (
     <div 
       className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}
@@ -1047,6 +1089,15 @@ export default function EnhancedEmailCampaignGenerator() {
         },
         'cmd+k': () => {
           console.log('Command palette opened');
+        },
+        'cmd+m': () => {
+          if (!isPaymentFormVisible) {
+            setIsPaymentFormVisible(true);
+            setMessages(prev => [...prev, 
+              { role: 'user', content: "I want to send money" },
+              { role: 'assistant', content: "Certainly! I've opened the payment form for you. Please fill in the details to send money." }
+            ]);
+          }
         },
         'esc': handleCancel,
       })}
@@ -1181,6 +1232,22 @@ export default function EnhancedEmailCampaignGenerator() {
           </div>
         </main>
       </div>
+
+      {/* Add this inside the main content area */}
+      {isPaymentFormVisible && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+        >
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h2 className="text-2xl font-bold mb-4">Send Payment</h2>
+            <SendPaymentForm onSubmit={handlePaymentSubmit} />
+            <Button onClick={() => setIsPaymentFormVisible(false)} className="mt-4">Cancel</Button>
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }

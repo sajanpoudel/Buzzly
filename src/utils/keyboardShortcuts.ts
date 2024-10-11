@@ -30,6 +30,12 @@ export const SHORTCUTS: Record<string, ShortcutAction> = {
     },
     description: 'Open command palette',
   },
+  'cmd+m': {
+    action: () => {
+      // This will be implemented in the component
+    },
+    description: 'Send money with Checkbook',
+  },
   'esc': {
     action: () => {
       // This will be implemented in the component
@@ -57,6 +63,9 @@ export const handleKeyboardShortcut = (
   } else if (cmd && key === 'k') {
     event.preventDefault();
     actions['cmd+k']();
+  } else if (cmd && key === 'm') {
+    event.preventDefault();
+    actions['cmd+m']();
   } else if (key === 'Escape') {
     event.preventDefault();
     actions['esc']();
