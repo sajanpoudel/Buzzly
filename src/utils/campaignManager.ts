@@ -35,7 +35,7 @@ export async function createCampaign(campaignData: CampaignCreationData): Promis
       trackingIds: [],
       status: campaignData.isScheduled ? 'Scheduled' : 'Pending',
       scheduledDateTime: campaignData.scheduledDateTime,
-      userEmail: campaignData.userEmail // Add this line
+      userEmail: campaignData.userEmail
     };
 
     console.log('New campaign object:', JSON.stringify(newCampaign, null, 2));
@@ -76,6 +76,7 @@ export async function createCampaign(campaignData: CampaignCreationData): Promis
     newCampaign.trackingIds = result.info.map((item: any) => item.trackingId);
     newCampaign.status = 'Sent';
 
+    // Save the campaign to local storage
     saveToStore(newCampaign);
 
     console.log(`Campaign sent and saved: ${JSON.stringify(newCampaign, null, 2)}`);

@@ -2,23 +2,23 @@ export interface Campaign {
   id: string;
   name: string;
   type: string;
-  subject: string;
-  body: string;
+  status: string;
   startDate: string;
   endDate: string;
-  isRecurring: boolean;
-  targetAudience: string;
   recipients: { name: string; email: string }[];
-  status: string;
+  trackingIds: string[];
   stats: {
     sent: number;
     opened: number;
     clicked: number;
     converted: number;
   };
-  trackingIds: string[];
-  scheduledDateTime?: string; // Add this line
-  userEmail: string; // Add this line
+  subject: string;
+  body: string;
+  isRecurring: boolean;
+  targetAudience: string;
+  scheduledDateTime?: string;
+  userEmail: string;
 }
 
 const CAMPAIGNS_KEY = 'email_campaigns';
@@ -36,7 +36,10 @@ export function saveCampaign(campaign: Campaign): void {
 
 export function getCampaigns(): Campaign[] {
   const campaignsJson = localStorage.getItem(CAMPAIGNS_KEY);
-  return campaignsJson ? JSON.parse(campaignsJson) : [];
+  if (campaignsJson) {
+    return JSON.parse(campaignsJson);
+  }
+  return [];
 }
 
 export function updateCampaignStats(id: string, stats: Partial<Campaign['stats']>): void {

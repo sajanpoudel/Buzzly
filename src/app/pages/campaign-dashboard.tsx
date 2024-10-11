@@ -13,62 +13,117 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 import { getInitialsFromEmail } from '@/utils/stringUtils';
-import { getCampaigns, updateCampaignStats, Campaign } from '@/utils/campaignManager';
+import { getCampaigns, updateCampaignStats, Campaign } from '@/utils/campaignStore';
 import EmailTrackingStats from '@/components/EmailTrackingStats';
 
-const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({ campaign, onClick }) => (
-  <Card className="mb-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={onClick}>
-    <CardContent className="p-6">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start space-x-4">
-          <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-2xl">
-            📧
+interface DeviceInfo {
+  device: string;
+  os: string;
+  browser: string;
+  count: number;
+}
+
+const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({ campaign, onClick }) => {
+  const [deviceStats, setDeviceStats] = useState<DeviceInfo[]>([]);
+
+  useEffect(() => {
+    const fetchDeviceStats = async () => {
+      try {
+        const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ trackingIds: campaign.trackingIds }),
+        });
+        const data = await response.json();
+        const deviceMap = new Map<string, DeviceInfo>();
+        data.detailedStats.forEach((stat: any) => {
+          (stat.devices || []).forEach((device: any) => {
+            const key = `${device.device}-${device.os}-${device.browser}`;
+            if (deviceMap.has(key)) {
+              deviceMap.get(key)!.count++;
+            } else {
+              deviceMap.set(key, { ...device, count: 1 });
+            }
+          });
+        });
+        setDeviceStats(Array.from(deviceMap.values()));
+      } catch (error) {
+        console.error('Error fetching device stats:', error);
+      }
+    };
+
+    fetchDeviceStats();
+  }, [campaign.trackingIds]);
+
+  return (
+    <Card className="mb-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={onClick}>
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-4">
+            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-2xl">
+              📧
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">{campaign.name}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{campaign.type}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Mail className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-500">{campaign.recipients.length}</span>
+            <Clock className="h-4 w-4 text-gray-400 ml-2" />
+            <span className="text-sm text-gray-500">
+              {Math.ceil((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
+            </span>
+            <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
+              campaign.status === 'Running' ? 'text-green-800 bg-green-100' : 
+              campaign.status === 'Completed' ? 'text-blue-800 bg-blue-100' :
+              'text-yellow-800 bg-yellow-100'
+            }`}>
+              {campaign.status}
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-4 mt-6">
+          <div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Sent</p>
+            <p className="text-lg font-semibold">{campaign.stats.sent}</p>
           </div>
           <div>
-            <h3 className="text-lg font-semibold">{campaign.name}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{campaign.type}</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Opened</p>
+            <p className="text-lg font-semibold">{campaign.stats.opened}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Clicked</p>
+            <p className="text-lg font-semibold">{campaign.stats.clicked}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Converted</p>
+            <p className="text-lg font-semibold">{campaign.stats.converted}</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Mail className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-500">{campaign.recipients.length}</span>
-          <Clock className="h-4 w-4 text-gray-400 ml-2" />
-          <span className="text-sm text-gray-500">
-            {Math.ceil((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
-          </span>
-          <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
-            campaign.status === 'Running' ? 'text-green-800 bg-green-100' : 
-            campaign.status === 'Completed' ? 'text-blue-800 bg-blue-100' :
-            'text-yellow-800 bg-yellow-100'
-          }`}>
-            {campaign.status}
-          </span>
+        <div className="mt-4 text-sm text-gray-500">
+          {new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}
         </div>
-      </div>
-      <div className="grid grid-cols-4 gap-4 mt-6">
-        <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Sent</p>
-          <p className="text-lg font-semibold">{campaign.stats.sent}</p>
+        <div className="mt-4">
+          <h4 className="text-lg font-semibold mb-2">Device Information</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {deviceStats.map((device, index) => (
+              <div key={index} className="bg-gray-100 dark:bg-gray-700 p-2 rounded">
+                <p className="font-medium">{device.device}</p>
+                <p className="text-sm">OS: {device.os}</p>
+                <p className="text-sm">Browser: {device.browser}</p>
+                <p className="text-sm">Count: {device.count}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Opened</p>
-          <p className="text-lg font-semibold">{campaign.stats.opened}</p>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Clicked</p>
-          <p className="text-lg font-semibold">{campaign.stats.clicked}</p>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Converted</p>
-          <p className="text-lg font-semibold">{campaign.stats.converted}</p>
-        </div>
-      </div>
-      <div className="mt-4 text-sm text-gray-500">
-        {new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}
-      </div>
-    </CardContent>
-  </Card>
-)
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function CampaignDashboard() {
   const router = useRouter()
@@ -110,6 +165,7 @@ export default function CampaignDashboard() {
 
     const loadCampaigns = () => {
       const storedCampaigns = getCampaigns();
+      console.log('Loaded campaigns:', storedCampaigns);
       setCampaigns(storedCampaigns);
       setIsLoading(false);
     };
