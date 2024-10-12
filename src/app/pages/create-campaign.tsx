@@ -26,6 +26,7 @@ import { emailTemplates, getTemplateById, EmailTemplate } from '@/utils/emailTem
 import dynamic from 'next/dynamic'
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css'; // You can choose a different style if you prefer
+import DOMPurify from 'dompurify'
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
 import 'react-quill/dist/quill.snow.css'
@@ -183,6 +184,17 @@ export default function CreateCampaign() {
   }, []);
 
   useEffect(() => {
+    if (campaignType === 'go-green') {
+      const template = getTemplateById('go-green');
+      if (template) {
+        setSubject(template.subject);
+        setBody(template.body);
+        setPreviewHtml(template.body);
+      }
+    }
+  }, [campaignType]);
+
+  useEffect(() => {
     setPreviewHtml(body);
   }, [body]);
 
@@ -331,6 +343,12 @@ export default function CreateCampaign() {
       ['clean']
     ],
   }
+
+  const sanitizeHtml = (html: string) => {
+    return {
+      __html: DOMPurify.sanitize(html)
+    };
+  };
 
   return (
     <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
@@ -532,6 +550,7 @@ export default function CreateCampaign() {
                           theme="snow"
                         />
                       </div>
+                    
                     </form>
                   </TabsContent>
                   <TabsContent value="audience">
@@ -620,13 +639,7 @@ export default function CreateCampaign() {
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
 
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold mb-2">Email Preview:</h3>
-        <div 
-          className="border p-4 rounded-md"
-          dangerouslySetInnerHTML={{ __html: previewHtml }}
-        />
-      </div>
+      
     </div>
   )
 }
