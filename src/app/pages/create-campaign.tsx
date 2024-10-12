@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
@@ -24,6 +23,12 @@ import { getInitialsFromEmail } from '@/utils/stringUtils';
 import { createCampaign } from '@/utils/campaignManager';
 import { checkAndSendScheduledCampaigns } from '@/utils/scheduledCampaignManager';
 import { emailTemplates, getTemplateById, EmailTemplate } from '@/utils/emailTemplates'
+import dynamic from 'next/dynamic'
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github.css'; // You can choose a different style if you prefer
+
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
+import 'react-quill/dist/quill.snow.css'
 
 const CampaignStats: React.FC<{ campaignId: string }> = ({ campaignId }) => {
   const [stats, setStats] = useState<any>(null);
@@ -96,6 +101,7 @@ export default function CreateCampaign() {
   const [isScheduled, setIsScheduled] = useState(false)
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined)
   const [scheduledTime, setScheduledTime] = useState<string>('12:00')
+  const [previewHtml, setPreviewHtml] = useState('');
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -159,6 +165,26 @@ export default function CreateCampaign() {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (campaignType) {
+      const template = getTemplateById(campaignType);
+      if (template) {
+        setSelectedTemplate(template);
+        setSubject(template.subject);
+        setBody(template.body);
+      }
+    }
+  }, [campaignType]);
+
+  useEffect(() => {
+    // Initialize highlight.js
+    hljs.highlightAll();
+  }, []);
+
+  useEffect(() => {
+    setPreviewHtml(body);
+  }, [body]);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
@@ -295,6 +321,17 @@ export default function CreateCampaign() {
   // Use local time for today's date
   const today = startOfDay(new Date());
 
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'color': [] }, { 'background': [] }],
+      ['link', 'image'],
+      ['clean']
+    ],
+  }
+
   return (
     <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
       <header className="bg-white dark:bg-gray-800 shadow-sm lg:hidden">
@@ -370,15 +407,19 @@ export default function CreateCampaign() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="campaignType">Campaign Type</Label>
-                          <Select value={campaignType} onValueChange={setCampaignType}>
-                            <SelectTrigger id="campaignType">
+                          <Select
+                            value={campaignType}
+                            onValueChange={(value) => setCampaignType(value)}
+                          >
+                            <SelectTrigger>
                               <SelectValue placeholder="Select campaign type" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="newsletter">Newsletter</SelectItem>
-                              <SelectItem value="promotional">Promotional</SelectItem>
-                              <SelectItem value="transactional">Transactional</SelectItem>
-                              <SelectItem value="automated">Automated</SelectItem>
+                              {emailTemplates.map((template) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  {template.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -474,43 +515,21 @@ export default function CreateCampaign() {
                   <TabsContent value="content">
                     <form className="space-y-6">
                       <div className="space-y-2">
-                        <Label htmlFor="emailTemplate">Email Template</Label>
-                        <Select value={selectedTemplate?.id} onValueChange={(value) => {
-                          const template = getTemplateById(value);
-                          setSelectedTemplate(template || null);
-                          if (template) {
-                            setSubject(template.subject);
-                            setBody(template.body);
-                          }
-                        }}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select email template" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {emailTemplates.map(template => (
-                              <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
                         <Label htmlFor="subject">Subject</Label>
                         <Input
                           id="subject"
-                          placeholder="Email subject"
                           value={subject}
                           onChange={(e) => setSubject(e.target.value)}
+                          placeholder="Enter email subject"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="body">Email Body</Label>
-                        <Textarea
-                          id="body"
-                          placeholder="Email body"
+                        <Label htmlFor="body">Body</Label>
+                        <ReactQuill
                           value={body}
-                          onChange={(e) => setBody(e.target.value)}
-                          rows={10}
-                          className="min-h-[200px]"
+                          onChange={setBody}
+                          modules={modules}
+                          theme="snow"
                         />
                       </div>
                     </form>
@@ -600,6 +619,14 @@ export default function CreateCampaign() {
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
+
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold mb-2">Email Preview:</h3>
+        <div 
+          className="border p-4 rounded-md"
+          dangerouslySetInnerHTML={{ __html: previewHtml }}
+        />
+      </div>
     </div>
   )
 }
