@@ -9,6 +9,13 @@ import { getCampaigns, Campaign, updateCampaignStats } from '@/utils/campaignSto
 import EmailTrackingStats from '@/components/EmailTrackingStats'
 import { useRouter } from 'next/navigation'
 
+interface DeviceInfo {
+  device: string;
+  os: string;
+  browser: string;
+  count: number;
+}
+
 export default function CampaignDetails() {
   const router = useRouter()
   const params = useParams()
@@ -16,6 +23,7 @@ export default function CampaignDetails() {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [darkMode, setDarkMode] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [deviceStats, setDeviceStats] = useState<DeviceInfo[]>([])
 
   useEffect(() => {
     if (id) {
@@ -24,6 +32,7 @@ export default function CampaignDetails() {
       if (foundCampaign) {
         setCampaign(foundCampaign)
         fetchLatestStats(foundCampaign)
+        fetchDeviceStats(foundCampaign)
       } else {
         router.push('/campaign-dashboard')
       }
@@ -50,6 +59,33 @@ export default function CampaignDetails() {
       console.error('Error fetching latest stats:', error);
     }
   }
+
+  const fetchDeviceStats = async (campaign: Campaign) => {
+    try {
+      const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ trackingIds: campaign.trackingIds }),
+      });
+      const data = await response.json();
+      const deviceMap = new Map<string, DeviceInfo>();
+      data.detailedStats.forEach((stat: any) => {
+        (stat.devices || []).forEach((device: any) => {
+          const key = `${device.device}-${device.os}-${device.browser}`;
+          if (deviceMap.has(key)) {
+            deviceMap.get(key)!.count++;
+          } else {
+            deviceMap.set(key, { ...device, count: 1 });
+          }
+        });
+      });
+      setDeviceStats(Array.from(deviceMap.values()));
+    } catch (error) {
+      console.error('Error fetching device stats:', error);
+    }
+  };
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
@@ -107,12 +143,30 @@ export default function CampaignDetails() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="mb-8">
               <CardHeader>
                 <CardTitle>Campaign Performance</CardTitle>
               </CardHeader>
               <CardContent>
                 <EmailTrackingStats trackingIds={campaign.trackingIds} />
+              </CardContent>
+            </Card>
+
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Device Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {deviceStats.map((device, index) => (
+                    <div key={index} className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow">
+                      <p className="font-medium text-lg mb-2">{device.device}</p>
+                      <p className="text-sm mb-1">OS: {device.os}</p>
+                      <p className="text-sm mb-1">Browser: {device.browser}</p>
+                      <p className="text-sm font-semibold">Count: {device.count}</p>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
@@ -124,7 +178,10 @@ export default function CampaignDetails() {
                 Back to Dashboard
               </Button>
               <Button 
-                onClick={() => fetchLatestStats(campaign)}
+                onClick={() => {
+                  fetchLatestStats(campaign);
+                  fetchDeviceStats(campaign);
+                }}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 Refresh Stats

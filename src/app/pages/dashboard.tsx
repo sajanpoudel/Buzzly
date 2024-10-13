@@ -321,16 +321,7 @@ export default function Dashboard() {
               />
             </div>
 
-            <div className="mb-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Real-time Email Tracking</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <EmailTrackingStats trackingIds={trackingIds} />
-                </CardContent>
-              </Card>
-            </div>
+
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Card>
