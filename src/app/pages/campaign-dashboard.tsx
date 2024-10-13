@@ -107,19 +107,7 @@ const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({ c
         <div className="mt-4 text-sm text-gray-500">
           {new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}
         </div>
-        <div className="mt-4">
-          <h4 className="text-lg font-semibold mb-2">Device Information</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-            {deviceStats.map((device, index) => (
-              <div key={index} className="bg-gray-100 dark:bg-gray-700 p-2 rounded">
-                <p className="font-medium">{device.device}</p>
-                <p className="text-sm">OS: {device.os}</p>
-                <p className="text-sm">Browser: {device.browser}</p>
-                <p className="text-sm">Count: {device.count}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+       
       </CardContent>
     </Card>
   )

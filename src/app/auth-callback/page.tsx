@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import DashboardSkeleton from '@/app/pages/dashboard-skeleton'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -9,17 +10,28 @@ export default function AuthCallback() {
   console.log('redirect');
 
   useEffect(() => {
-    const tokens = searchParams.get('tokens')
-    console.log('Tokens:', tokens)
-    if (tokens) {
-      localStorage.setItem('gmail_tokens', tokens)
-      console.log('Redirecting to /dashboard')
-      router.push('/dashboard')
-    } else {
-      console.error('No tokens received')
-      router.push('/')
+    const handleAuth = () => {
+      if (!searchParams) {
+        console.error('No search params available')
+        router.push('/')
+        return
+      }
+
+      const tokens = searchParams.get('tokens')
+      console.log('Tokens:', tokens)
+      
+      if (tokens) {
+        localStorage.setItem('gmail_tokens', tokens)
+        console.log('Redirecting to /dashboard')
+        router.push('/dashboard')
+      } else {
+        console.error('No tokens received')
+        router.push('/')
+      }
     }
+
+    handleAuth()
   }, [router, searchParams])
 
-  return <div>Processing authentication...</div>
+  return <DashboardSkeleton />
 }

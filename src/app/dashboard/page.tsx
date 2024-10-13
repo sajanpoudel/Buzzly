@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Dashboard from '@/app/pages/dashboard'
+import DashboardSkeleton from '@/app/pages/dashboard-skeleton'
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -14,12 +15,15 @@ export default function DashboardPage() {
       console.log('No tokens found, redirecting to login')
       router.push('/')
     } else {
-      setIsLoading(false)
+      // Simulate loading time
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 2000) // Adjust this time as needed
     }
   }, [router])
 
   if (isLoading) {
-    return <div>Loading...</div>
+    return <DashboardSkeleton />
   }
 
   return <Dashboard />

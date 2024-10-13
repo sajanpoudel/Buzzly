@@ -8,6 +8,7 @@ import Sidebar from '@/components/Sidebar'
 import { getCampaigns, Campaign, updateCampaignStats } from '@/utils/campaignStore'
 import EmailTrackingStats from '@/components/EmailTrackingStats'
 import { useRouter } from 'next/navigation'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell, LabelList } from 'recharts'
 
 interface DeviceInfo {
   device: string;
@@ -15,6 +16,11 @@ interface DeviceInfo {
   browser: string;
   count: number;
 }
+
+const COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', 
+  '#F06292', '#AED581', '#7986CB', '#4DB6AC', '#FFD54F'
+];
 
 export default function CampaignDetails() {
   const router = useRouter()
@@ -92,6 +98,45 @@ export default function CampaignDetails() {
     document.documentElement.classList.toggle('dark')
   }
 
+  const prepareChartData = (deviceStats: DeviceInfo[]) => {
+    const deviceData: { [key: string]: { [key: string]: number } } = {};
+
+    deviceStats.forEach(stat => {
+      if (!deviceData[stat.device]) {
+        deviceData[stat.device] = {};
+      }
+      if (!deviceData[stat.device][stat.browser]) {
+        deviceData[stat.device][stat.browser] = 0;
+      }
+      deviceData[stat.device][stat.browser] += stat.count;
+    });
+
+    return Object.entries(deviceData).map(([device, browsers]) => ({
+      device,
+      ...browsers,
+      total: Object.values(browsers).reduce((sum, count) => sum + count, 0),
+    }));
+  };
+
+  const chartData = prepareChartData(deviceStats);
+  const browsers = Array.from(new Set(deviceStats.map(stat => stat.browser)));
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="custom-tooltip bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+          <p className="label font-semibold">{`${label}`}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={`item-${index}`} style={{ color: entry.color }}>
+              {`${entry.name}: ${entry.value}`}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (!campaign) {
     return <div>Loading...</div>
   }
@@ -166,6 +211,71 @@ export default function CampaignDetails() {
                       <p className="text-sm font-semibold">Count: {device.count}</p>
                     </div>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Device and Browser Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[500px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={chartData}
+                      margin={{
+                        top: 20,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <XAxis 
+                        dataKey="device" 
+                        tick={{ fill: darkMode ? '#E5E7EB' : '#4B5563' }}
+                        axisLine={{ stroke: darkMode ? '#4B5563' : '#9CA3AF' }}
+                      />
+                      <YAxis 
+                        tick={{ fill: darkMode ? '#E5E7EB' : '#4B5563' }}
+                        axisLine={{ stroke: darkMode ? '#4B5563' : '#9CA3AF' }}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend 
+                        wrapperStyle={{ 
+                          paddingTop: '20px',
+                          color: darkMode ? '#E5E7EB' : '#4B5563'
+                        }}
+                      />
+                      {browsers.map((browser, index) => (
+                        <Bar 
+                          key={browser} 
+                          dataKey={browser} 
+                          stackId="a" 
+                          fill={COLORS[index % COLORS.length]}
+                        >
+                          <LabelList 
+                            dataKey={browser} 
+                            position="inside" 
+                            fill="#FFFFFF" 
+                            fontSize={12}
+                            formatter={(value: number) => (value > 0 ? value : '')}
+                          />
+                          {chartData.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={COLORS[index % COLORS.length]}
+                              style={{
+                                filter: `brightness(${1 + index * 0.1})`,
+                                stroke: darkMode ? '#1F2937' : '#FFFFFF',
+                                strokeWidth: 1,
+                              }}
+                            />
+                          ))}
+                        </Bar>
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
