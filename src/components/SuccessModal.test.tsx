@@ -7,4 +7,9 @@ describe('SuccessModal', () => {
     const { container } = render(<SuccessModal isOpen={false} onClose={vi.fn()} message="Saved" />)
     expect(container).toBeEmptyDOMElement()
   })
+
+  it('shows the message when open', () => {
+    render(<SuccessModal isOpen onClose={vi.fn()} message="Campaign created" />)
+    expect(screen.getByText('Campaign created')).toBeInTheDocument()
+  })
 });
