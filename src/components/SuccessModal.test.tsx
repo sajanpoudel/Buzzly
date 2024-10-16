@@ -12,4 +12,9 @@ describe('SuccessModal', () => {
     render(<SuccessModal isOpen onClose={vi.fn()} message="Campaign created" />)
     expect(screen.getByText('Campaign created')).toBeInTheDocument()
   })
+
+  it('has a Success heading', () => {
+    render(<SuccessModal isOpen onClose={vi.fn()} message="Saved" />)
+    expect(screen.getByRole('heading', { name: 'Success!' })).toBeInTheDocument()
+  })
 });
