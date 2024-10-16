@@ -9,16 +9,12 @@ import useAuth from "@/hooks/useAuth";
 
 export default function Login() {
   const router = useRouter()
-<<<<<<< Updated upstream
-  console.log('Login');
-=======
   const isLoggedIn = useAuth();
   console.log("is this logged in ", isLoggedIn)
   if (isLoggedIn) {
     router.push('/dashboard')
   }  
  
->>>>>>> Stashed changes
 
   const handleGoogleLogin = async () => {
     try {
