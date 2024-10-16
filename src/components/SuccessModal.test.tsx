@@ -17,4 +17,11 @@ describe('SuccessModal', () => {
     render(<SuccessModal isOpen onClose={vi.fn()} message="Saved" />)
     expect(screen.getByRole('heading', { name: 'Success!' })).toBeInTheDocument()
   })
+
+  it('calls onClose from the Close button', () => {
+    const onClose = vi.fn()
+    render(<SuccessModal isOpen onClose={onClose} message="Saved" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
 });
