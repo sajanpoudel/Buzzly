@@ -10,12 +10,6 @@ export default function AuthCallback() {
   console.log('redirect');
 
   useEffect(() => {
-<<<<<<< Updated upstream
-    const tokens = searchParams.get('tokens')
-    console.log('Tokens:', tokens)
-    if (tokens) {
-      localStorage.setItem('gmail_tokens', tokens)
-=======
     const paramTokens= searchParams.get('tokens')
     if (!paramTokens) {
       console.error('No tokens received')
@@ -54,7 +48,6 @@ export default function AuthCallback() {
     if (paramTokens) {
       storeUserInfo()
       localStorage.setItem('gmail_tokens', paramTokens)
->>>>>>> Stashed changes
       console.log('Redirecting to /dashboard')
       router.push('/dashboard')
     } else {
