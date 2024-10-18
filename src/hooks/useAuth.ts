@@ -14,8 +14,14 @@ const useAuth = () => {
                 return;
             }
 
-            // Parse the tokens from local storage
-            const googleTokens = JSON.parse(storedTokens);
+            // Parse the tokens from local storage, treating corrupted data as logged out
+            let googleTokens;
+            try {
+                googleTokens = JSON.parse(storedTokens);
+            } catch {
+                setIsLoggedIn(false);
+                return;
+            }
             const { access_token, expiry_date } = googleTokens;
 
             // Check if the access token is present and if it hasn't expired
