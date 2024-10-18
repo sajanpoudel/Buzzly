@@ -17,11 +17,10 @@ const useAuth = () => {
             // Parse the tokens from local storage
             const googleTokens = JSON.parse(storedTokens);
             const { access_token, expiry_date } = googleTokens;
-            console.log('googleTokens:', googleTokens);
 
             // Check if the access token is present and if it hasn't expired
             const currentTime = Date.now();
-            const isTokenValid = access_token && currentTime < expiry_date;
+            const isTokenValid = Boolean(access_token) && currentTime < expiry_date;
 
             setIsLoggedIn(isTokenValid);
         };
