@@ -29,7 +29,15 @@ export function saveCampaign(campaign: Campaign): void {
 
 export function getCampaigns(): Campaign[] {
   const campaignsJson = localStorage.getItem(CAMPAIGNS_KEY);
-  return campaignsJson ? JSON.parse(campaignsJson) : [];
+  if (!campaignsJson) {
+    return [];
+  }
+  try {
+    return JSON.parse(campaignsJson);
+  } catch {
+    // The stored value is corrupted, start again from an empty list
+    return [];
+  }
 }
 
 export function updateCampaignStats(id: string, stats: { opened: number; clicked: number; converted: number }): void {
