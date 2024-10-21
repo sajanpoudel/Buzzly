@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prismadb'; // Adjust this path to where your Prisma instance is configured.
 
+// Returns null when the value is empty, a Date when it is valid and undefined when it is not a date.
+function parseOptionalDate(value: unknown): Date | null | undefined {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value as string);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
 export async function POST(request: Request) {
   try {
     // Parse the request body
@@ -34,6 +43,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const parsedEndDate = parseOptionalDate(endDate);
+    const parsedScheduleDate = parseOptionalDate(scheduleCampaign);
+    if (parsedEndDate === undefined || parsedScheduleDate === undefined) {
+      return NextResponse.json({ error: 'Invalid date provided.' }, { status: 400 });
+    }
+
     // Check if the user exists
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -59,9 +74,9 @@ export async function POST(request: Request) {
         audiencefileId,
         campaignName,
         campaignType,
-        endDate: endDate ? new Date(endDate) : null,
-        scheduleCampaign: scheduleCampaign ? new Date(scheduleCampaign) : null,
-        recurringCampaign,
+        endDate: parsedEndDate,
+        scheduleCampaign: parsedScheduleDate,
+        recurringCampaign: Boolean(recurringCampaign),
         emailTemplate,
         subject,
         emailBody,
