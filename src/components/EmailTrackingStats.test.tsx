@@ -31,4 +31,13 @@ describe('EmailTrackingStats', () => {
     render(<EmailTrackingStats trackingIds={[]} />)
     expect(screen.getByText('Total Sent').nextElementSibling).toHaveTextContent('0')
   })
+
+  it('posts the tracking ids to the stats endpoint', async () => {
+    const fetchMock = mockFetch({ ok: true, json: async () => stats })
+    render(<EmailTrackingStats trackingIds={['a', 'b']} />)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toContain('/auth/email-stats')
+    expect(JSON.parse(init.body)).toEqual({ trackingIds: ['a', 'b'] })
+  })
 });
