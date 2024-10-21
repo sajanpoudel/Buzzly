@@ -19,6 +19,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Audience Name and Email cannot be empty' }, { status: 400 });
     }
 
+    const allStrings = [...audienceName, ...audienceEmail].every((value) => typeof value === 'string');
+    if (!allStrings) {
+      return NextResponse.json({ error: 'Audience Name and Email must only contain strings' }, { status: 400 });
+    }
+
     // Create new audience file in the database
     const newAudienceFile = await prisma.audiencefile.create({
       data: {
