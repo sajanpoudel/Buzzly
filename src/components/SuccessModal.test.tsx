@@ -24,4 +24,9 @@ describe('SuccessModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('covers the page with a dimmed overlay', () => {
+    const { container } = render(<SuccessModal isOpen onClose={vi.fn()} message="Saved" />)
+    expect(container.firstChild).toHaveClass('fixed', 'inset-0', 'z-50')
+  })
 });
