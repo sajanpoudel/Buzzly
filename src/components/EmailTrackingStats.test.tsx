@@ -25,4 +25,10 @@ describe('EmailTrackingStats', () => {
     render(<EmailTrackingStats trackingIds={[]} />)
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('shows zeros before any data arrives', () => {
+    mockFetch({ ok: true, json: async () => stats })
+    render(<EmailTrackingStats trackingIds={[]} />)
+    expect(screen.getByText('Total Sent').nextElementSibling).toHaveTextContent('0')
+  })
 });
