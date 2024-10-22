@@ -1,5 +1,30 @@
 # Buzzly AI
 
+## Getting Started
+
+1. Install dependencies:
+
+   ```
+   npm install
+   ```
+
+2. Copy `.env.example` to `.env` and set `DATABASE_URL` (a MongoDB connection string used by Prisma) and `NEXT_PUBLIC_BACKEND_URL` (the email backend).
+
+3. Generate the Prisma client and start the dev server on port 3001:
+
+   ```
+   npx prisma generate
+   npm run dev
+   ```
+
+## API routes
+
+| Route | Purpose |
+| --- | --- |
+| `POST /api/store-user` | Save a user after Google sign in |
+| `POST /api/create-audiencefile` | Save the names and emails of an audience |
+| `POST /api/create-campaign` | Create a campaign for a user and an audience file |
+
 ## Inspiration
 Our project idea stems from the common frustration many businesses encounter when managing email campaigns. Sending bulk emails manually is time-consuming, especially when urgent updates, like notifying employees about their paychecks, need to be communicated swiftly. Additionally, tracking email success metrics—like open rates and click-through rates—can be disjointed and difficult to analyze.
 
