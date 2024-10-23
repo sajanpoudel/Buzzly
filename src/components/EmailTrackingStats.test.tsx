@@ -40,4 +40,11 @@ describe('EmailTrackingStats', () => {
     expect(url).toContain('/auth/email-stats')
     expect(JSON.parse(init.body)).toEqual({ trackingIds: ['a', 'b'] })
   })
+
+  it('shows the totals from the api', async () => {
+    mockFetch({ ok: true, json: async () => stats })
+    render(<EmailTrackingStats trackingIds={['a']} />)
+    await waitFor(() => expect(screen.getByText('200')).toBeInTheDocument())
+    expect(screen.getByText('100')).toBeInTheDocument()
+  })
 });
