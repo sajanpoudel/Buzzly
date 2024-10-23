@@ -47,4 +47,10 @@ describe('EmailTrackingStats', () => {
     await waitFor(() => expect(screen.getByText('200')).toBeInTheDocument())
     expect(screen.getByText('100')).toBeInTheDocument()
   })
+
+  it('computes the open rate from unique opens', async () => {
+    mockFetch({ ok: true, json: async () => stats })
+    render(<EmailTrackingStats trackingIds={['a']} />)
+    await waitFor(() => expect(screen.getByText('Open Rate').nextElementSibling).toHaveTextContent('50.00%'))
+  })
 });
