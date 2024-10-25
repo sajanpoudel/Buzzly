@@ -53,4 +53,12 @@ describe('EmailTrackingStats', () => {
     render(<EmailTrackingStats trackingIds={['a']} />)
     await waitFor(() => expect(screen.getByText('Open Rate').nextElementSibling).toHaveTextContent('50.00%'))
   })
+
+  it('computes the click through rate', async () => {
+    mockFetch({ ok: true, json: async () => stats })
+    render(<EmailTrackingStats trackingIds={['a']} />)
+    await waitFor(() =>
+      expect(screen.getByText('Click-through Rate').nextElementSibling).toHaveTextContent('15.00%')
+    )
+  })
 });
