@@ -61,4 +61,10 @@ describe('EmailTrackingStats', () => {
       expect(screen.getByText('Click-through Rate').nextElementSibling).toHaveTextContent('15.00%')
     )
   })
+
+  it('shows an error when the request fails', async () => {
+    mockFetch({ ok: false, status: 500 })
+    render(<EmailTrackingStats trackingIds={['a']} />)
+    expect(await screen.findByText(/Failed to fetch email stats/)).toBeInTheDocument()
+  })
 });
