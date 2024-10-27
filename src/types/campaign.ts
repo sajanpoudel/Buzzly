@@ -13,4 +13,5 @@ export interface CampaignCreationData {
   isScheduled: boolean;
   scheduledDateTime?: string;
   isSingleEmail?: boolean;
+  description?: string;
 }

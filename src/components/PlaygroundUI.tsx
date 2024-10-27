@@ -10,7 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
-export const CampaignNameInput = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+export const CampaignNameInput = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
   <div className="space-y-2 w-full">
     <Label htmlFor="campaignName" className="text-sm font-medium">Campaign Name</Label>
     <Input
@@ -18,6 +18,12 @@ export const CampaignNameInput = ({ value, onChange }: { value: string; onChange
       placeholder="Enter campaign name"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyPress={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
       className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
     />
   </div>
@@ -26,15 +32,17 @@ export const CampaignNameInput = ({ value, onChange }: { value: string; onChange
 export const CampaignTypeSelect = ({ 
   value, 
   onChange, 
-  options 
+  options,
+  onSubmit
 }: { 
   value: string; 
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
+  onSubmit: () => void;
 }) => (
   <div className="space-y-2 w-full">
     <Label htmlFor="campaignType" className="text-sm font-medium">Campaign Type</Label>
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value} onValueChange={(value) => { onChange(value); onSubmit(); }}>
       <SelectTrigger id="campaignType" className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
         <SelectValue placeholder="Select campaign type" />
       </SelectTrigger>
@@ -47,7 +55,7 @@ export const CampaignTypeSelect = ({
   </div>
 );
 
-export const SubjectInput = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+export const SubjectInput = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
   <div className="space-y-2 w-full">
     <Label htmlFor="subject" className="text-sm font-medium">Subject</Label>
     <Input
@@ -55,12 +63,18 @@ export const SubjectInput = ({ value, onChange }: { value: string; onChange: (va
       placeholder="Enter email subject"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyPress={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
       className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
     />
   </div>
 );
 
-export const BodyTextarea = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+export const BodyTextarea = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
   <div className="space-y-2 w-full">
     <Label htmlFor="body" className="text-sm font-medium">Email Body</Label>
     <Textarea
@@ -68,6 +82,12 @@ export const BodyTextarea = ({ value, onChange }: { value: string; onChange: (va
       placeholder="Enter email body"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyPress={(e) => {
+        if (e.key === 'Enter' && e.ctrlKey) {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
       rows={10}
       className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
     />
@@ -121,21 +141,29 @@ export const TimePicker = ({ value, onChange }: { value: string; onChange: (valu
   </div>
 );
 
-export const TemplateDescriptionInput = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+export const TemplateDescriptionInput = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
   <div className="space-y-2 w-full">
     <Label htmlFor="templateDescription" className="text-sm font-medium">Template Description</Label>
-    <Textarea
-      id="templateDescription"
-      placeholder="Describe the template you want to create..."
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-      rows={4}
-    />
+    <div className="relative">
+      <Textarea
+        id="templateDescription"
+        placeholder="Describe the template you want to create..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyPress={(e) => {
+          if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
+        className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical pr-10"
+        rows={4}
+      />
+    </div>
   </div>
 );
 
-export const TemplateNameInput = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+export const TemplateNameInput = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
   <div className="space-y-2 w-full">
     <Label htmlFor="templateName" className="text-sm font-medium">Template Name</Label>
     <Input
@@ -143,6 +171,12 @@ export const TemplateNameInput = ({ value, onChange }: { value: string; onChange
       placeholder="Enter template name"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyPress={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
       className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
     />
   </div>
@@ -206,3 +240,4 @@ export const RecipientInput = ({ recipients, onAdd, onRemove }: { recipients: { 
     </div>
   );
 };
+
