@@ -8,7 +8,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import FileUpload from "@/components/ui/file-upload"
-import { createCampaign } from '@/utils/campaignManager'
+import { createCampaign } from '@/utils/db'  // Change this import to use db directly
 import { checkAndSendScheduledCampaigns } from '@/utils/scheduledCampaignManager'
 import { emailTemplates, getTemplateById, EmailTemplate } from '@/utils/emailTemplates'
 import { Send, Loader2, Calendar, X, Sparkles, Search, Bell, Moon, Sun, Menu, Pencil } from 'lucide-react'
@@ -31,7 +31,8 @@ import dynamic from 'next/dynamic'
 import DOMPurify from 'dompurify'
 import 'react-quill/dist/quill.snow.css';
 import { useAuth } from '@/contexts/AuthContext';  // Add this import
-import { CampaignType } from '@/types/database';  // Add this import
+import { CampaignData, CampaignType, TemplateData as DbTemplateData } from '@/types/database';  // Rename to avoid conflict
+import { getTemplates } from '@/utils/db';
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
 
@@ -40,44 +41,25 @@ interface Message {
   content: string
 }
 
-interface CampaignData {
-  name: string
-  type: string
-  subject: string
-  body: string
-  recipients: { name: string; email: string }[]
-  isScheduled: boolean
-  scheduledDateTime?: Date
-  template: EmailTemplate | null
-  isSingleEmail?: boolean
-  description?: string  // Add this line
-}
-
-interface TemplateData {
-  name: string
-  description: string
-  subject: string
-  body: string
-}
-
-interface EmailData {
-  template: EmailTemplate | null
-  subject: string
-  body: string
-  recipients: { name: string; email: string }[]
-  scheduledDateTime?: Date
-}
-
 interface CampaignState {
   name: string;
-  type: CampaignType;  // Use the imported CampaignType
+  type: CampaignType;
   subject: string;
   body: string;
   recipients: { name: string; email: string }[];
   isRecurring: boolean;
   isScheduled: boolean;
+  scheduledDateTime?: Date;
   targetAudience: string;
   description: string;
+}
+
+interface EmailData {
+  template: EmailTemplate | null;
+  subject: string;
+  body: string;
+  recipients: { name: string; email: string }[];
+  scheduledDateTime?: Date;
 }
 
 const InfinityLoader = () => (
@@ -127,13 +109,13 @@ interface RightPanelProps {
   isCreatingCampaign: boolean;
   isCreatingTemplate: boolean;
   campaignData: CampaignState;
-  templateData: Partial<TemplateData>;
+  templateData: Partial<DbTemplateData>;
   currentStep: number;
   handleInputSubmit: (field: keyof CampaignState) => void;
-  handleTemplateInput: (field: keyof TemplateData) => void;
+  handleTemplateInput: (field: keyof DbTemplateData) => void;
   handleCancel: () => void;
   setCampaignData: React.Dispatch<React.SetStateAction<CampaignState>>;
-  setTemplateData: React.Dispatch<React.SetStateAction<Partial<TemplateData>>>;
+  setTemplateData: React.Dispatch<React.SetStateAction<Partial<DbTemplateData>>>;
   statusUpdate: string | null;
   setStatusUpdate: React.Dispatch<React.SetStateAction<string | null>>;
   handleScheduleCampaign: (scheduleType: 'now' | 'tomorrow' | 'in2days' | 'custom') => void;
@@ -520,10 +502,10 @@ const RightPanel = ({
         <h2 className="text-xl font-bold">
           {isCreatingCampaign ? 'Create Campaign' : isCreatingTemplate ? 'Create Template' : isCreatingEmail ? 'Send Email' : 'Assistant'}
         </h2>
-      </div>
-      
+          </div>
+
       {renderForm()}
-    </div>
+              </div>
   );
 };
 
@@ -543,16 +525,17 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
   // Update the initial campaign data state
   const [campaignData, setCampaignData] = useState<CampaignState>({
     name: '',
-    type: 'newsletter' as CampaignType,  // Add type assertion
+    type: 'general' as CampaignType, // Default type
     subject: '',
     body: '',
     recipients: [],
     isRecurring: false,
     isScheduled: false,
-    targetAudience: 'all',
+    scheduledDateTime: undefined,
+    targetAudience: 'all', // Default audience
     description: ''
   });
-  const [templateData, setTemplateData] = useState<Partial<TemplateData>>({
+  const [templateData, setTemplateData] = useState<Partial<DbTemplateData>>({
     name: '',
     description: '',
     subject: '',
@@ -579,6 +562,14 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
   const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState<PaymentData | null>(null);
   const [aiStatus, setAiStatus] = useState('')
+  const [userTemplates, setUserTemplates] = useState<DbTemplateData[]>([]);
+
+  // Add template selection state
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('default');
+  const [customTemplates, setCustomTemplates] = useState<DbTemplateData[]>([]);
+
+  // Add state for AI generation
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
@@ -663,6 +654,35 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     };
   }, [isCreatingCampaign, isCreatingTemplate, isCreatingEmail, isPaymentFormVisible]);
 
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      if (!user) return;
+      try {
+        const templates = await getTemplates(user.id);
+        setUserTemplates(templates);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+      }
+    };
+
+    loadUserInfo();
+  }, [user]);
+
+  // Add useEffect to load templates
+  useEffect(() => {
+    const loadTemplates = async () => {
+      if (!user) return;
+      try {
+        const userTemplates = await getTemplates(user.id);
+        setCustomTemplates(userTemplates);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+      }
+    };
+
+    loadTemplates();
+  }, [user]);
+
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')
@@ -730,6 +750,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
                       
                       Ensure the tone is formal yet engaging. Make the content concise and impactful.
                       Do not use placeholders like [Name] or [Company]. Instead, use general terms or the actual campaign name.
+                      Do not include any labels like 'Subject:' or 'Email Body:' in the generated content.
                       Do not include any labels like 'Subject:' or 'Email Body:' in the generated content.`;
       
       const result = await model.generateContent(prompt)
@@ -914,13 +935,14 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     setCurrentStep(0);
     setCampaignData({
       name: '',
-      type: 'newsletter' as CampaignType,  // Add type assertion
+      type: 'general' as CampaignType, // Default type
       subject: '',
       body: '',
       recipients: [],
       isRecurring: false,
       isScheduled: false,
-      targetAudience: 'all',
+      scheduledDateTime: undefined,
+      targetAudience: 'all', // Default audience
       description: ''
     });
     setEmailData({
@@ -1069,7 +1091,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     setInput('');
   };
 
-  const handleTemplateInput = async (field: keyof TemplateData) => {
+  const handleTemplateInput = async (field: keyof DbTemplateData) => {
     const value = templateData[field];
     let nextStep = currentStep + 1;
 
@@ -1127,6 +1149,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
 
   const handleScheduleCampaign = async (scheduleType: 'now' | 'tomorrow' | 'in2days' | 'custom') => {
     let scheduledDateTime: Date | undefined;
+    
     switch (scheduleType) {
       case 'now':
         scheduledDateTime = new Date();
@@ -1134,29 +1157,62 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
       case 'tomorrow':
         scheduledDateTime = new Date();
         scheduledDateTime.setDate(scheduledDateTime.getDate() + 1);
-        scheduledDateTime.setHours(10, 0, 0, 0);
         break;
       case 'in2days':
         scheduledDateTime = new Date();
         scheduledDateTime.setDate(scheduledDateTime.getDate() + 2);
-        scheduledDateTime.setHours(10, 0, 0, 0);
         break;
       case 'custom':
-        setCurrentStep(7); // Move to custom date/time selection step
-        return; // Exit the function early
+        // Custom date will be handled by the date picker
+        return;
     }
 
-    if (scheduledDateTime) {
-      await saveCampaign(scheduledDateTime);
+    try {
+      setCampaignData(prev => ({
+        ...prev,
+        isScheduled: true,
+        scheduledDateTime
+      }));
+
+      await handleSaveCampaign();
+
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `Campaign scheduled for ${scheduledDateTime?.toLocaleString()}` }
+      ]);
+    } catch (error) {
+      console.error('Error scheduling campaign:', error);
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `Error scheduling campaign: ${error instanceof Error ? error.message : 'Unknown error'}` }
+      ]);
     }
   };
 
   const handleCustomDateTimeSubmit = async () => {
-    if (campaignData.scheduledDateTime) {
-      await saveCampaign(campaignData.scheduledDateTime);
-    } else {
+    if (!campaignData.scheduledDateTime) {
       setMessages(prev => [...prev, 
-        { role: 'assistant', content: "Please select both a date and time before scheduling." }
+        { role: 'assistant', content: 'Please select a valid date and time.' }
+      ]);
+      return;
+    }
+
+    try {
+      setCampaignData(prev => ({
+        ...prev,
+        isScheduled: true
+      }));
+
+      // Create a safe copy of the scheduled date
+      const scheduledDate = new Date(campaignData.scheduledDateTime);
+
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `Campaign scheduled for ${scheduledDate.toLocaleString()}` }
+      ]);
+
+      await handleSaveCampaign();
+    } catch (error) {
+      console.error('Error scheduling campaign:', error);
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `Error scheduling campaign: ${error instanceof Error ? error.message : 'Unknown error'}` }
       ]);
     }
   };
@@ -1224,11 +1280,13 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     try {
       const tokens = JSON.parse(localStorage.getItem('gmail_tokens') || '{}')
       const userEmail = localStorage.getItem('user_email') || ''
+      const tempId = `temp-${Date.now()}`;
 
-      const campaignInput: CampaignInput = {
+      const campaignInput: CampaignData = {
+        id: tempId,  // Add this line
         userId: user.id,
         name: `Single Email - ${new Date().toISOString()}`,
-        type: 'transactional' as CampaignType,  // Add type assertion
+        type: 'transactional',
         subject: emailData.subject || '',
         body: emailData.body || '',
         recipients: emailData.recipients || [],
@@ -1237,7 +1295,6 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
         isRecurring: false,
         targetAudience: 'specific',
         userEmail,
-        tokens,
         isScheduled: !!scheduledDateTime,
         scheduledDateTime: scheduledDateTime?.toISOString(),
         status: 'draft',
@@ -1245,10 +1302,13 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
           sent: 0,
           opened: 0,
           clicked: 0,
-          converted: 0
+          converted: 0,
+          deviceInfo: []
         },
         trackingIds: [],
-        description: 'Single Email Campaign'
+        description: 'Single Email Campaign',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
       const newCampaign = await createCampaign(campaignInput);
@@ -1328,41 +1388,48 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     try {
       setAiStatus('Creating campaign...');
       
-      const campaignInput: CampaignInput = {
+      // Create a temporary ID that will be replaced by Firestore
+      const tempId = `temp-${Date.now()}`;
+      
+      const campaignInput: CampaignData = {
+        id: tempId,  // Add this line - will be replaced by Firestore
         userId: user.id,
         name: campaignData.name,
-        type: campaignData.type, // This is now properly typed as CampaignType
+        type: campaignData.type,
         subject: campaignData.subject,
         body: campaignData.body,
         recipients: campaignData.recipients,
         startDate: new Date().toISOString(),
         endDate: new Date().toISOString(),
         isRecurring: campaignData.isRecurring,
-        isScheduled: false,
+        isScheduled: campaignData.isScheduled,
+        scheduledDateTime: campaignData.scheduledDateTime?.toISOString(),
         status: 'draft',
         stats: {
           sent: 0,
           opened: 0,
           clicked: 0,
-          converted: 0
+          converted: 0,
+          deviceInfo: []
         },
         trackingIds: [],
         targetAudience: campaignData.targetAudience,
         userEmail: user.email,
-        description: campaignData.description,
-        tokens: JSON.parse(localStorage.getItem('gmail_tokens') || '{}')
+        description: campaignData.description || 'General campaign',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
       const newCampaign = await createCampaign(campaignInput);
 
       setMessages(prev => [...prev, 
-        { role: 'assistant', content: `Campaign "${campaignData.name}" created successfully! Emails will be sent shortly.` }
+        { role: 'assistant', content: `Campaign "${campaignData.name}" created successfully!` }
       ]);
 
-      // Reset form with proper types
+      // Reset form
       setCampaignData({
         name: '',
-        type: 'newsletter' as CampaignType,  // Add type assertion
+        type: 'general',
         subject: '',
         body: '',
         recipients: [],
@@ -1385,6 +1452,206 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
       ]);
       setAiStatus('Error creating campaign. Please try again.');
     }
+  };
+
+  // Update template selection handler
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+
+    if (templateId === 'default') {
+      // Reset to empty template
+      setCampaignData(prev => ({
+        ...prev,
+        subject: '',
+        body: ''
+      }));
+      return;
+    }
+
+    // Check predefined templates
+    const predefinedTemplate = emailTemplates.find(t => t.id === templateId);
+    if (predefinedTemplate) {
+      setCampaignData(prev => ({
+        ...prev,
+        subject: predefinedTemplate.subject,
+        body: predefinedTemplate.body,
+        type: getTemplateType(templateId)
+      }));
+      return;
+    }
+
+    // Check custom templates
+    const customTemplate = customTemplates.find(t => t.id === templateId);
+    if (customTemplate) {
+      setCampaignData(prev => ({
+        ...prev,
+        subject: customTemplate.subject,
+        body: customTemplate.body
+      }));
+    }
+  };
+
+  // Helper function to determine campaign type from template
+  const getTemplateType = (templateId: string): CampaignType => {
+    switch (templateId) {
+      case 'welcome-new':
+        return 'newsletter';
+      case 'testimonials':
+      case 'event-invitation':
+        return 'promotional';
+      case 'survey':
+      case 'thank-you':
+        return 'transactional';
+      default:
+        return 'general';
+    }
+  };
+
+  // Update the template selection UI
+  const renderTemplateSelection = () => (
+    <div className="space-y-2 md:col-span-2">
+      <Label htmlFor="template">Template Selection</Label>
+                <Select
+        value={selectedTemplateId}
+        onValueChange={handleTemplateSelect}
+                >
+                  <SelectTrigger>
+          <SelectValue placeholder="Choose a template" />
+                  </SelectTrigger>
+                  <SelectContent>
+          <SelectItem value="default">No Template</SelectItem>
+          
+          {/* Predefined Templates */}
+          <SelectItem value="welcome-new">Welcome Email</SelectItem>
+          <SelectItem value="testimonials">Testimonials Email</SelectItem>
+          <SelectItem value="survey">Survey Request</SelectItem>
+          <SelectItem value="event-invitation">Event Invitation</SelectItem>
+          <SelectItem value="thank-you">Thank You Email</SelectItem>
+          
+          {/* Separator for Custom Templates */}
+          {customTemplates.length > 0 && (
+            <div className="px-2 py-1.5 text-sm font-semibold text-gray-500">
+              Your Custom Templates
+                </div>
+          )}
+          
+          {/* Custom Templates */}
+          {customTemplates.map(template => (
+            <SelectItem key={template.id} value={template.id}>
+              {template.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  // Add AI generation function
+  const generateCampaignContent = async (prompt: string) => {
+    setIsGenerating(true);
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      
+      // Parse the AI response and update campaign data
+      const lines = text.split('\n');
+      let subject = '';
+      let body = '';
+
+      lines.forEach(line => {
+        if (line.startsWith('Subject:')) {
+          subject = line.replace('Subject:', '').trim();
+        } else {
+          body += line + '\n';
+        }
+      });
+
+      setCampaignData(prev => ({
+        ...prev,
+        subject: subject || prev.subject,
+        body: body || prev.body
+      }));
+
+    } catch (error) {
+      console.error('Error generating content:', error);
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: 'Sorry, I had trouble generating the content. Please try again.' }
+      ]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Add AI generation button to the form
+  const renderCampaignForm = () => (
+    <div className="space-y-4">
+      {/* ... other form fields ... */}
+      
+      <div className="space-y-2">
+        <Label>Campaign Content</Label>
+        <div className="flex space-x-2">
+          <Button 
+            onClick={() => generateCampaignContent('Generate a marketing email about our latest product')}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-2" />
+            )}
+            Generate Content
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Schedule Campaign</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => handleScheduleCampaign('now')}>
+            Send Now
+          </Button>
+          <Button onClick={() => handleScheduleCampaign('tomorrow')}>
+            Tomorrow
+          </Button>
+          <Button onClick={() => handleScheduleCampaign('in2days')}>
+            In 2 Days
+          </Button>
+          <Button onClick={() => setCampaignData(prev => ({ ...prev, isScheduled: true }))}>
+            Custom Date
+          </Button>
+        </div>
+      </div>
+
+      {campaignData.isScheduled && (
+        <div className="space-y-2">
+          <Label>Select Date and Time</Label>
+          <div className="flex gap-2">
+            <Input
+              type="datetime-local"
+              value={campaignData.scheduledDateTime 
+                ? campaignData.scheduledDateTime.toISOString().slice(0, 16) 
+                : ''}
+              onChange={handleDateTimeChange}
+              min={new Date().toISOString().slice(0, 16)}
+            />
+            <Button 
+              onClick={handleCustomDateTimeSubmit}
+              disabled={!campaignData.scheduledDateTime}
+            >
+              Schedule
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ... rest of the form ... */}
+    </div>
+  );
+
+  const handleDateTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = new Date(e.target.value);
+    setCampaignData(prev => ({ ...prev, scheduledDateTime: newDate }));
   };
 
   return (

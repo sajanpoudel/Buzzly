@@ -39,22 +39,20 @@ const CampaignCard: React.FC<{ campaign: CampaignData; onClick: () => void }> = 
 
         if (response.ok) {
           const data = await response.json();
-          // Update local stats
-          setStats({
+          // Update stats directly from the response instead of adding to previous stats
+          const newStats = {
             sent: campaign.recipients.length,
             opened: data.totalOpened || 0,
             clicked: data.totalClicks || 0,
-            converted: data.uniqueOpens || 0
-          });
+            converted: data.uniqueOpens || 0,
+            deviceInfo: data.deviceInfo || []
+          };
 
-          // Update stats in Firestore
+          setStats(newStats);
+
+          // Update stats in Firestore with the new values
           await updateDoc(doc(db, 'campaigns', campaign.id), {
-            stats: {
-              sent: campaign.recipients.length,
-              opened: data.totalOpened || 0,
-              clicked: data.totalClicks || 0,
-              converted: data.uniqueOpens || 0
-            },
+            stats: newStats,
             updatedAt: new Date().toISOString()
           });
         }
