@@ -67,4 +67,10 @@ describe('EmailTrackingStats', () => {
     render(<EmailTrackingStats trackingIds={['a']} />)
     expect(await screen.findByText(/Failed to fetch email stats/)).toBeInTheDocument()
   })
+
+  it('shows an error when the network is down', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    render(<EmailTrackingStats trackingIds={['a']} />)
+    expect(await screen.findByText(/Failed to fetch email stats/)).toBeInTheDocument()
+  })
 });
