@@ -1,4 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { TemplateData } from "@/types/database";
+import { createTemplate as createTemplateInDb } from '@/utils/db';
+import { doc, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
 
@@ -22,17 +26,42 @@ export async function generateTemplate(description: string) {
   };
 }
 
-export function saveTemplate(name: string, subject: string, body: string) {
-  // Implement the logic to save the template to your database or storage
+export async function saveTemplate(name: string, subject: string, body: string, userId: string) {
   console.log(`Saving template: ${name}`);
-  // For now, we'll just return a success message
-  return `Template "${name}" saved successfully`;
+  
+  // Create a new document reference to get an ID
+  const templateRef = doc(collection(db, 'templates'));
+  
+  // Create template data with ID and userId
+  const templateData: TemplateData = {
+    id: templateRef.id,
+    userId: userId, // Add the userId here
+    name,
+    description: '',
+    category: 'custom',
+    subject,
+    body,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  
+  return await createTemplateInDb(templateData);
 }
 
-export function createTemplate(name: string, content: string) {
-  console.log(`Creating template: ${name}`);
-  // Implement template creation logic
-  return `Template "${name}" created`;
+// Update createTemplate to handle ID generation
+export async function createTemplate(templateData: Omit<TemplateData, 'id'>) {
+  console.log(`Creating template: ${templateData.name}`);
+  
+  // Create a new document reference to get an ID
+  const templateRef = doc(collection(db, 'templates'));
+  
+  // Create the full template data with the generated ID
+  const fullTemplateData: TemplateData = {
+    ...templateData,
+    id: templateRef.id
+  };
+  
+  return await createTemplateInDb(fullTemplateData);
 }
 
 export function editTemplate(id: string, content: string) {

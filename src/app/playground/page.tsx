@@ -20,7 +20,7 @@ import { getInitialsFromEmail } from '@/utils/stringUtils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { handleKeyboardShortcut, SHORTCUTS } from '@/utils/keyboardShortcuts'
-import { generateTemplate, saveTemplate } from '@/functionCalling/templateFunctions'
+import { createTemplate, generateTemplate, saveTemplate } from '@/functionCalling/templateFunctions'
 import { Switch } from "@/components/ui/switch"
 import { CampaignCreationData, CampaignInput } from '@/types/campaign'
 import { SendPaymentForm, PaymentData } from '@/components/SendPaymentForm'
@@ -134,7 +134,7 @@ const RightPanel = ({
   isCreatingCampaign, 
   isCreatingTemplate, 
   campaignData, 
-  templateData, 
+  templateData,
   currentStep,
   handleInputSubmit,
   handleTemplateInput,
@@ -513,6 +513,25 @@ type PageProps = {
   searchParams?: { [key: string]: string | string[] | undefined };
 };
 
+// Add this helper function
+const getTemplateType = (templateId: string): CampaignType => {
+  switch (templateId) {
+    case 'welcome-new':
+    case 'newsletter-template':
+      return 'newsletter';
+    case 'testimonials':
+    case 'event-invitation':
+    case 'promotional-template':
+      return 'promotional';
+    case 'survey':
+    case 'thank-you':
+    case 'transactional-template':
+      return 'transactional';
+    default:
+      return 'general';
+  }
+};
+
 export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: PageProps) {
   const { user } = useAuth();  // Add this line
   const [darkMode, setDarkMode] = useState(false)
@@ -535,7 +554,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     targetAudience: 'all', // Default audience
     description: ''
   });
-  const [templateData, setTemplateData] = useState<Partial<DbTemplateData>>({
+  const [newTemplateData, setNewTemplateData] = useState<Partial<DbTemplateData>>({
     name: '',
     description: '',
     subject: '',
@@ -570,6 +589,10 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
 
   // Add state for AI generation
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Add template preview state
+  const [templatePreview, setTemplatePreview] = useState('');
+  const [isTemplateLoading, setIsTemplateLoading] = useState(false);
 
   const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
@@ -1066,7 +1089,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     switch (field) {
       case 'name':
         setStatusUpdate("Campaign name set. Entering description...");
-        nextPrompt = `Great! Your campaign name is "${value}". Now, please provide a brief description of your campaign. Include the purpose, target audience, and any key points you want to highlight.`;
+        nextPrompt = `Great! Your campaign name is "${value}". Now, please provide a brief description of your campaign.`;
         nextStep = currentStep + 1;
         break;
       case 'description':
@@ -1092,7 +1115,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
   };
 
   const handleTemplateInput = async (field: keyof DbTemplateData) => {
-    const value = templateData[field];
+    const value = newTemplateData[field];
     let nextStep = currentStep + 1;
 
     switch (field) {
@@ -1101,7 +1124,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
           try {
             setStatusUpdate("Generating template based on description...");
             const generatedTemplate = await generateTemplate(value);
-            setTemplateData(prev => ({
+            setNewTemplateData(prev => ({
               ...prev,
               subject: generatedTemplate.subject,
               body: generatedTemplate.body,
@@ -1119,16 +1142,21 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
         }
         break;
       case 'name':
-        if (value && templateData.subject && templateData.body) {
+        if (value && newTemplateData.subject && newTemplateData.body && user) {  // Add user check
           setStatusUpdate("Saving template...");
-          await saveTemplate(value, templateData.subject, templateData.body);
+          await saveTemplate(
+            value, 
+            newTemplateData.subject, 
+            newTemplateData.body,
+            user.id  // Add user.id here
+          );
           setIsCreatingTemplate(false);
           setCurrentStep(0);
           setIsFormVisible(false);
           setMessages(prev => [...prev, 
             { role: 'assistant', content: `Great! Your template "${value}" has been saved. Is there anything else I can help you with?` }
           ]);
-          setTemplateData({
+          setNewTemplateData({
             name: '',
             description: '',
             subject: '',
@@ -1454,71 +1482,128 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     }
   };
 
-  // Update template selection handler
-  const handleTemplateSelect = (templateId: string) => {
-    setSelectedTemplateId(templateId);
+  // Update handleSaveTemplate function
+  const handleSaveTemplate = async () => {
+    if (!user) {
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: 'You must be authenticated to save templates.' }
+      ]);
+      return;
+    }
 
-    if (templateId === 'default') {
-      // Reset to empty template
-      setCampaignData(prev => ({
-        ...prev,
+    try {
+      setAiStatus('Saving template...');
+      
+      // Create template data with all required fields
+      const templateToSave: Omit<DbTemplateData, 'id'> = {
+        userId: user.id,
+        name: newTemplateData.name || 'Untitled Template',
+        description: newTemplateData.description || '',
+        category: 'custom',
+        subject: campaignData.subject,
+        body: campaignData.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Save template using the db function directly
+      const savedTemplate = await createTemplate(templateToSave);
+      
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `Template "${templateToSave.name}" saved successfully!` }
+      ]);
+
+      // Reset template form
+      setNewTemplateData({
+        name: '',
+        description: '',
         subject: '',
         body: ''
-      }));
-      return;
-    }
+      });
 
-    // Check predefined templates
-    const predefinedTemplate = emailTemplates.find(t => t.id === templateId);
-    if (predefinedTemplate) {
-      setCampaignData(prev => ({
-        ...prev,
-        subject: predefinedTemplate.subject,
-        body: predefinedTemplate.body,
-        type: getTemplateType(templateId)
-      }));
-      return;
-    }
+      // Refresh templates list
+      const updatedTemplates = await getTemplates(user.id);
+      setCustomTemplates(updatedTemplates);
 
-    // Check custom templates
-    const customTemplate = customTemplates.find(t => t.id === templateId);
-    if (customTemplate) {
-      setCampaignData(prev => ({
-        ...prev,
-        subject: customTemplate.subject,
-        body: customTemplate.body
-      }));
+    } catch (error) {
+      console.error('Error saving template:', error);
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: `Error saving template: ${error instanceof Error ? error.message : 'Unknown error'}` }
+      ]);
+    } finally {
+      setAiStatus('');
     }
   };
 
-  // Helper function to determine campaign type from template
-  const getTemplateType = (templateId: string): CampaignType => {
-    switch (templateId) {
-      case 'welcome-new':
-        return 'newsletter';
-      case 'testimonials':
-      case 'event-invitation':
-        return 'promotional';
-      case 'survey':
-      case 'thank-you':
-        return 'transactional';
-      default:
-        return 'general';
-    }
+  // Update the template editor component
+  const renderTemplateEditor = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <Label>Template Content</Label>
+        <Button
+          onClick={handleSaveTemplate}
+          disabled={!campaignData.body || isTemplateLoading}
+          size="sm"
+        >
+          {isTemplateLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <span>Save Template</span>
+          )}
+        </Button>
+      </div>
+
+      <div className="min-h-[400px] border rounded-md">
+        <ReactQuill
+          value={campaignData.body}
+          onChange={(value) => setCampaignData(prev => ({ ...prev, body: value }))}
+          modules={modules}
+          theme="snow"
+          placeholder="Write your email content here..."
+        />
+      </div>
+
+      {templatePreview && (
+        <div className="mt-4">
+          <Label>Preview</Label>
+          <div 
+            className="p-4 border rounded-md mt-2 prose dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(templatePreview) }}
+          />
+        </div>
+      )}
+    </div>
+  );
+
+  // Update the form to include template selection and editor
+  const renderCampaignForm = () => (
+    <div className="space-y-4">
+      {/* ... other form fields ... */}
+
+      {renderTemplateSelection()}
+      {renderTemplateEditor()}
+
+      {/* ... rest of the form ... */}
+    </div>
+  );
+
+  const handleDateTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = new Date(e.target.value);
+    setCampaignData(prev => ({ ...prev, scheduledDateTime: newDate }));
   };
 
-  // Update the template selection UI
+  // Add renderTemplateSelection function
   const renderTemplateSelection = () => (
     <div className="space-y-2 md:col-span-2">
       <Label htmlFor="template">Template Selection</Label>
-                <Select
+      <Select
         value={selectedTemplateId}
         onValueChange={handleTemplateSelect}
-                >
-                  <SelectTrigger>
+      >
+        <SelectTrigger>
           <SelectValue placeholder="Choose a template" />
-                  </SelectTrigger>
-                  <SelectContent>
+        </SelectTrigger>
+        <SelectContent>
           <SelectItem value="default">No Template</SelectItem>
           
           {/* Predefined Templates */}
@@ -1527,12 +1612,13 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
           <SelectItem value="survey">Survey Request</SelectItem>
           <SelectItem value="event-invitation">Event Invitation</SelectItem>
           <SelectItem value="thank-you">Thank You Email</SelectItem>
+          <SelectItem value="go-green">Go Green Initiative</SelectItem>
           
           {/* Separator for Custom Templates */}
           {customTemplates.length > 0 && (
             <div className="px-2 py-1.5 text-sm font-semibold text-gray-500">
               Your Custom Templates
-                </div>
+            </div>
           )}
           
           {/* Custom Templates */}
@@ -1546,112 +1632,53 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     </div>
   );
 
-  // Add AI generation function
-  const generateCampaignContent = async (prompt: string) => {
-    setIsGenerating(true);
+  // Add handleTemplateSelect function
+  const handleTemplateSelect = async (templateId: string) => {
+    setIsTemplateLoading(true);
+    setSelectedTemplateId(templateId);
+
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      
-      // Parse the AI response and update campaign data
-      const lines = text.split('\n');
-      let subject = '';
-      let body = '';
+      if (templateId === 'default') {
+        setCampaignData(prev => ({
+          ...prev,
+          subject: '',
+          body: ''
+        }));
+        setTemplatePreview('');
+        return;
+      }
 
-      lines.forEach(line => {
-        if (line.startsWith('Subject:')) {
-          subject = line.replace('Subject:', '').trim();
-        } else {
-          body += line + '\n';
-        }
-      });
+      // Check predefined templates
+      const predefinedTemplate = emailTemplates.find(t => t.id === templateId);
+      if (predefinedTemplate) {
+        setCampaignData(prev => ({
+          ...prev,
+          subject: predefinedTemplate.subject,
+          body: predefinedTemplate.body,
+          type: getTemplateType(templateId)
+        }));
+        setTemplatePreview(predefinedTemplate.body);
+        return;
+      }
 
-      setCampaignData(prev => ({
-        ...prev,
-        subject: subject || prev.subject,
-        body: body || prev.body
-      }));
-
+      // Check custom templates
+      const customTemplate = customTemplates.find(t => t.id === templateId);
+      if (customTemplate) {
+        setCampaignData(prev => ({
+          ...prev,
+          subject: customTemplate.subject,
+          body: customTemplate.body
+        }));
+        setTemplatePreview(customTemplate.body);
+      }
     } catch (error) {
-      console.error('Error generating content:', error);
+      console.error('Error loading template:', error);
       setMessages(prev => [...prev, 
-        { role: 'assistant', content: 'Sorry, I had trouble generating the content. Please try again.' }
+        { role: 'assistant', content: 'Error loading template. Please try again.' }
       ]);
     } finally {
-      setIsGenerating(false);
+      setIsTemplateLoading(false);
     }
-  };
-
-  // Add AI generation button to the form
-  const renderCampaignForm = () => (
-    <div className="space-y-4">
-      {/* ... other form fields ... */}
-      
-      <div className="space-y-2">
-        <Label>Campaign Content</Label>
-        <div className="flex space-x-2">
-          <Button 
-            onClick={() => generateCampaignContent('Generate a marketing email about our latest product')}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Sparkles className="h-4 w-4 mr-2" />
-            )}
-            Generate Content
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Schedule Campaign</Label>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => handleScheduleCampaign('now')}>
-            Send Now
-          </Button>
-          <Button onClick={() => handleScheduleCampaign('tomorrow')}>
-            Tomorrow
-          </Button>
-          <Button onClick={() => handleScheduleCampaign('in2days')}>
-            In 2 Days
-          </Button>
-          <Button onClick={() => setCampaignData(prev => ({ ...prev, isScheduled: true }))}>
-            Custom Date
-          </Button>
-        </div>
-      </div>
-
-      {campaignData.isScheduled && (
-        <div className="space-y-2">
-          <Label>Select Date and Time</Label>
-          <div className="flex gap-2">
-            <Input
-              type="datetime-local"
-              value={campaignData.scheduledDateTime 
-                ? campaignData.scheduledDateTime.toISOString().slice(0, 16) 
-                : ''}
-              onChange={handleDateTimeChange}
-              min={new Date().toISOString().slice(0, 16)}
-            />
-            <Button 
-              onClick={handleCustomDateTimeSubmit}
-              disabled={!campaignData.scheduledDateTime}
-            >
-              Schedule
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ... rest of the form ... */}
-    </div>
-  );
-
-  const handleDateTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = new Date(e.target.value);
-    setCampaignData(prev => ({ ...prev, scheduledDateTime: newDate }));
   };
 
   return (
@@ -1787,13 +1814,13 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
                     isCreatingCampaign={isCreatingCampaign}
                     isCreatingTemplate={isCreatingTemplate}
                     campaignData={campaignData}
-                    templateData={templateData}
+                    templateData={newTemplateData}
                     currentStep={currentStep}
                     handleInputSubmit={handleInputSubmit}
                     handleTemplateInput={handleTemplateInput}
                     handleCancel={handleCancel}
                     setCampaignData={setCampaignData}
-                    setTemplateData={setTemplateData}
+                    setTemplateData={setNewTemplateData}
                     statusUpdate={statusUpdate}
                     setStatusUpdate={setStatusUpdate}
                     handleScheduleCampaign={handleScheduleCampaign}
