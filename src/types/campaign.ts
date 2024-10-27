@@ -1,3 +1,5 @@
+import { CampaignData } from "./database";
+
 export interface CampaignCreationData {
   name: string;
   type: string;
@@ -14,4 +16,8 @@ export interface CampaignCreationData {
   scheduledDateTime?: string;
   isSingleEmail?: boolean;
   description?: string;
+}
+
+export interface CampaignInput extends Omit<CampaignData, 'id'> {
+  tokens: any;
 }

@@ -22,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { handleKeyboardShortcut, SHORTCUTS } from '@/utils/keyboardShortcuts'
 import { generateTemplate, saveTemplate } from '@/functionCalling/templateFunctions'
 import { Switch } from "@/components/ui/switch"
-import { CampaignCreationData } from '@/types/campaign'
+import { CampaignCreationData, CampaignInput } from '@/types/campaign'
 import { SendPaymentForm, PaymentData } from '@/components/SendPaymentForm'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import Image from 'next/image'
@@ -30,6 +30,8 @@ import Papa from 'papaparse'
 import dynamic from 'next/dynamic'
 import DOMPurify from 'dompurify'
 import 'react-quill/dist/quill.snow.css';
+import { useAuth } from '@/contexts/AuthContext';  // Add this import
+import { CampaignType } from '@/types/database';  // Add this import
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
 
@@ -64,6 +66,18 @@ interface EmailData {
   body: string
   recipients: { name: string; email: string }[]
   scheduledDateTime?: Date
+}
+
+interface CampaignState {
+  name: string;
+  type: CampaignType;  // Use the imported CampaignType
+  subject: string;
+  body: string;
+  recipients: { name: string; email: string }[];
+  isRecurring: boolean;
+  isScheduled: boolean;
+  targetAudience: string;
+  description: string;
 }
 
 const InfinityLoader = () => (
@@ -109,6 +123,31 @@ const StatusUpdate = ({ message }: { message: string }) => (
   </motion.div>
 );
 
+interface RightPanelProps {
+  isCreatingCampaign: boolean;
+  isCreatingTemplate: boolean;
+  campaignData: CampaignState;
+  templateData: Partial<TemplateData>;
+  currentStep: number;
+  handleInputSubmit: (field: keyof CampaignState) => void;
+  handleTemplateInput: (field: keyof TemplateData) => void;
+  handleCancel: () => void;
+  setCampaignData: React.Dispatch<React.SetStateAction<CampaignState>>;
+  setTemplateData: React.Dispatch<React.SetStateAction<Partial<TemplateData>>>;
+  statusUpdate: string | null;
+  setStatusUpdate: React.Dispatch<React.SetStateAction<string | null>>;
+  handleScheduleCampaign: (scheduleType: 'now' | 'tomorrow' | 'in2days' | 'custom') => void;
+  handleCustomDateTimeSubmit: () => void;
+  handleFileUpload: (file: File | null) => void;
+  isCreatingEmail: boolean;
+  emailData: EmailData;
+  setEmailData: React.Dispatch<React.SetStateAction<EmailData>>;
+  handleEmailInput: (field: keyof EmailData) => void;
+  setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
+  setInput: React.Dispatch<React.SetStateAction<string>>;
+  generateEmailContent: (name: string, description: string) => Promise<void>;
+}
+
 const RightPanel = ({ 
   isCreatingCampaign, 
   isCreatingTemplate, 
@@ -132,30 +171,7 @@ const RightPanel = ({
   setCurrentStep,
   setInput,
   generateEmailContent,
-}: {
-  isCreatingCampaign: boolean;
-  isCreatingTemplate: boolean;
-  campaignData: CampaignData;
-  templateData: TemplateData;
-  currentStep: number;
-  handleInputSubmit: (field: keyof CampaignData) => void;
-  handleTemplateInput: (field: keyof TemplateData) => void;
-  handleCancel: () => void;
-  setCampaignData: React.Dispatch<React.SetStateAction<CampaignData>>;
-  setTemplateData: React.Dispatch<React.SetStateAction<TemplateData>>;
-  statusUpdate: string | null;
-  setStatusUpdate: React.Dispatch<React.SetStateAction<string | null>>;
-  handleScheduleCampaign: (scheduleType: 'now' | 'tomorrow' | 'in2days' | 'custom') => void;
-  handleCustomDateTimeSubmit: () => void;
-  handleFileUpload: (file: File | null) => void;
-  isCreatingEmail: boolean;
-  emailData: EmailData;
-  setEmailData: React.Dispatch<React.SetStateAction<EmailData>>;
-  handleEmailInput: (field: keyof EmailData) => void;
-  setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
-  setInput: React.Dispatch<React.SetStateAction<string>>;
-  generateEmailContent: (name: string, description: string) => Promise<void>;
-}) => {
+}: RightPanelProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
@@ -516,6 +532,7 @@ type PageProps = {
 };
 
 export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: PageProps) {
+  const { user } = useAuth();  // Add this line
   const [darkMode, setDarkMode] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: "Hello! I'm your AI assistant for email campaigns. How can I help you today?" }
@@ -523,17 +540,19 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [currentAction, setCurrentAction] = useState<string | null>(null)
-  const [campaignData, setCampaignData] = useState<CampaignData>({
+  // Update the initial campaign data state
+  const [campaignData, setCampaignData] = useState<CampaignState>({
     name: '',
-    type: '',
+    type: 'newsletter' as CampaignType,  // Add type assertion
     subject: '',
     body: '',
     recipients: [],
+    isRecurring: false,
     isScheduled: false,
-    template: null,
-    description: ''  // Add this line
-  })
-  const [templateData, setTemplateData] = useState<TemplateData>({
+    targetAudience: 'all',
+    description: ''
+  });
+  const [templateData, setTemplateData] = useState<Partial<TemplateData>>({
     name: '',
     description: '',
     subject: '',
@@ -683,6 +702,10 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
   };
 
   const generateEmailContent = async (name: string, description: string) => {
+    if (!name || !description) {
+      throw new Error('Campaign name and description are required');
+    }
+    
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-pro" })
       const prompt = `Create a concise, formal, and compelling email campaign based on the following:
@@ -844,10 +867,10 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
           // Update campaign data with recipients
           setCampaignData(prev => {
             // Replace [Name] placeholder in email body for preview
-            const updatedBody = prev.body.replace(
+            const updatedBody = prev.body?.replace(
               /\[Name\]/g, 
               `[Recipient's Name]` // Using a generic placeholder for preview
-            );
+            ) || '';
 
             return {
               ...prev,
@@ -891,12 +914,14 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     setCurrentStep(0);
     setCampaignData({
       name: '',
-      type: '',
+      type: 'newsletter' as CampaignType,  // Add type assertion
       subject: '',
       body: '',
       recipients: [],
+      isRecurring: false,
       isScheduled: false,
-      template: null
+      targetAudience: 'all',
+      description: ''
     });
     setEmailData({
       template: null,
@@ -1011,7 +1036,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     }
   };
 
-  const handleInputSubmit = (field: keyof CampaignData) => {
+  const handleInputSubmit = (field: keyof CampaignState) => {
     const value = campaignData[field];
     let nextStep = currentStep;
     let nextPrompt = '';
@@ -1050,7 +1075,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
 
     switch (field) {
       case 'description':
-        if (value.length > 5) {
+        if (value && value.length > 5) {
           try {
             setStatusUpdate("Generating template based on description...");
             const generatedTemplate = await generateTemplate(value);
@@ -1072,7 +1097,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
         }
         break;
       case 'name':
-        if (value.trim()) {
+        if (value && templateData.subject && templateData.body) {
           setStatusUpdate("Saving template...");
           await saveTemplate(value, templateData.subject, templateData.body);
           setIsCreatingTemplate(false);
@@ -1089,7 +1114,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
           });
           return;
         } else {
-          setStatusUpdate("Please provide a name for your template before saving.");
+          setStatusUpdate("Please provide all required template information before saving.");
           nextStep = currentStep;
         }
         break;
@@ -1194,16 +1219,19 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
   };
 
   const sendOrScheduleEmail = async (emailData: EmailData, scheduledDateTime?: Date) => {
+    if (!user) return;
+
     try {
       const tokens = JSON.parse(localStorage.getItem('gmail_tokens') || '{}')
       const userEmail = localStorage.getItem('user_email') || ''
 
-      const campaignData: CampaignCreationData = {
+      const campaignInput: CampaignInput = {
+        userId: user.id,
         name: `Single Email - ${new Date().toISOString()}`,
-        type: 'single',
-        subject: emailData.subject,
-        body: emailData.body,
-        recipients: emailData.recipients,
+        type: 'transactional' as CampaignType,  // Add type assertion
+        subject: emailData.subject || '',
+        body: emailData.body || '',
+        recipients: emailData.recipients || [],
         startDate: new Date().toISOString(),
         endDate: new Date().toISOString(),
         isRecurring: false,
@@ -1212,10 +1240,18 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
         tokens,
         isScheduled: !!scheduledDateTime,
         scheduledDateTime: scheduledDateTime?.toISOString(),
-        isSingleEmail: true,
+        status: 'draft',
+        stats: {
+          sent: 0,
+          opened: 0,
+          clicked: 0,
+          converted: 0
+        },
+        trackingIds: [],
+        description: 'Single Email Campaign'
       };
 
-      const newCampaign = await createCampaign(campaignData);
+      const newCampaign = await createCampaign(campaignInput);
 
       console.log("New email campaign object:", newCampaign);
 
@@ -1240,58 +1276,114 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
   // Add this function inside the EnhancedEmailCampaignGenerator component
 
   const saveCampaign = async (scheduledDateTime?: Date) => {
-    setAiStatus('Saving campaign...')
+    if (!campaignData.recipients.length) {
+      throw new Error('No recipients added to campaign');
+    }
+
+    const personalizedCampaigns = campaignData.recipients.map(recipient => {
+      const personalizedBody = campaignData.body.replace(/\[Name\]/g, recipient.name);
+      
+      const campaign: CampaignInput = {
+        userId: user?.id || 'default-user',
+        name: campaignData.name,
+        type: campaignData.type,  // This is now properly typed
+        subject: campaignData.subject,
+        body: personalizedBody,
+        recipients: [recipient],
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        isRecurring: campaignData.isRecurring,
+        isScheduled: !!scheduledDateTime,
+        scheduledDateTime: scheduledDateTime?.toISOString(),
+        status: 'draft',
+        stats: {
+          sent: 0,
+          opened: 0,
+          clicked: 0,
+          converted: 0
+        },
+        trackingIds: [],
+        targetAudience: campaignData.targetAudience,
+        userEmail: user?.email || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        description: campaignData.description,
+        tokens: JSON.parse(localStorage.getItem('gmail_tokens') || '{}')
+      };
+
+      return campaign;
+    });
+
+    // ... rest of the function
+  };
+
+  const handleSaveCampaign = async () => {
+    if (!user) {
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: 'You must be authenticated to create a campaign.' }
+      ]);
+      return;
+    }
+
     try {
-      const tokens = JSON.parse(localStorage.getItem('gmail_tokens') || '{}')
-      const userEmail = localStorage.getItem('user_email') || ''
+      setAiStatus('Creating campaign...');
+      
+      const campaignInput: CampaignInput = {
+        userId: user.id,
+        name: campaignData.name,
+        type: campaignData.type, // This is now properly typed as CampaignType
+        subject: campaignData.subject,
+        body: campaignData.body,
+        recipients: campaignData.recipients,
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        isRecurring: campaignData.isRecurring,
+        isScheduled: false,
+        status: 'draft',
+        stats: {
+          sent: 0,
+          opened: 0,
+          clicked: 0,
+          converted: 0
+        },
+        trackingIds: [],
+        targetAudience: campaignData.targetAudience,
+        userEmail: user.email,
+        description: campaignData.description,
+        tokens: JSON.parse(localStorage.getItem('gmail_tokens') || '{}')
+      };
 
-      // Create personalized campaigns for each recipient
-      const personalizedCampaigns = campaignData.recipients.map(recipient => {
-        const personalizedBody = campaignData.body.replace(/\[Name\]/g, recipient.name);
-        
-        return {
-          ...campaignData,
-          body: personalizedBody,
-          recipients: [recipient], // Send to individual recipient
-          startDate: new Date().toISOString(),
-          endDate: new Date().toISOString(),
-          isRecurring: false,
-          targetAudience: 'specific',
-          userEmail,
-          tokens,
-          isScheduled: !!scheduledDateTime,
-          scheduledDateTime: scheduledDateTime?.toISOString(),
-        };
-      });
-
-      // Create all campaigns
-      const results = await Promise.all(
-        personalizedCampaigns.map(campaign => createCampaign(campaign))
-      );
+      const newCampaign = await createCampaign(campaignInput);
 
       setMessages(prev => [...prev, 
-        { 
-          role: 'assistant', 
-          content: campaignData.isScheduled
-            ? `Great! Your campaign has been scheduled for ${scheduledDateTime?.toLocaleString()}. It will be sent to ${campaignData.recipients.length} recipients with personalized content.`
-            : `Excellent! Your campaign has been created and will be sent shortly to ${campaignData.recipients.length} recipients with personalized content.`
-        }
+        { role: 'assistant', content: `Campaign "${campaignData.name}" created successfully! Emails will be sent shortly.` }
       ]);
+
+      // Reset form with proper types
+      setCampaignData({
+        name: '',
+        type: 'newsletter' as CampaignType,  // Add type assertion
+        subject: '',
+        body: '',
+        recipients: [],
+        isRecurring: false,
+        isScheduled: false,
+        targetAudience: 'all',
+        description: ''
+      });
 
       setCurrentStep(0);
       setCurrentAction(null);
       setIsFormVisible(false);
       setIsCreatingCampaign(false);
       setAiStatus('');
+
     } catch (error) {
-      console.error('Error saving campaign:', error);
+      console.error('Error creating campaign:', error);
       setMessages(prev => [...prev, 
-        { 
-          role: 'assistant', 
-          content: `I'm sorry, but there was an error creating the campaign: ${error instanceof Error ? error.message : 'Unknown error'}. Can I help you troubleshoot or try again?` 
-        }
+        { role: 'assistant', content: `Error creating campaign: ${error instanceof Error ? error.message : 'Unknown error'}` }
       ]);
-      setAiStatus('Error saving campaign. Please try again.');
+      setAiStatus('Error creating campaign. Please try again.');
     }
   };
 

@@ -9,6 +9,9 @@ import { getCampaigns, Campaign, updateCampaignStats } from '@/utils/campaignSto
 import EmailTrackingStats from '@/components/EmailTrackingStats'
 import { useRouter } from 'next/navigation'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell, LabelList } from 'recharts'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { CampaignData } from '@/types/database'
 
 interface DeviceInfo {
   device: string;
@@ -26,26 +29,39 @@ export default function CampaignDetails() {
   const router = useRouter()
   const params = useParams()
   const id = params?.id as string
-  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [campaign, setCampaign] = useState<CampaignData | null>(null)
   const [darkMode, setDarkMode] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [deviceStats, setDeviceStats] = useState<DeviceInfo[]>([])
 
   useEffect(() => {
-    if (id) {
-      const campaigns = getCampaigns()
-      const foundCampaign = campaigns.find(c => c.id === id)
-      if (foundCampaign) {
-        setCampaign(foundCampaign)
-        fetchLatestStats(foundCampaign)
-        fetchDeviceStats(foundCampaign)
-      } else {
-        router.push('/campaign-dashboard')
+    const loadCampaign = async () => {
+      if (!id) return;
+      
+      try {
+        // Get campaign from Firestore
+        const campaignRef = doc(db, 'campaigns', id);
+        const campaignSnap = await getDoc(campaignRef);
+        
+        if (campaignSnap.exists()) {
+          const campaignData = campaignSnap.data() as CampaignData;
+          setCampaign(campaignData);
+          fetchLatestStats(campaignData);
+          fetchDeviceStats(campaignData);
+        } else {
+          console.log('Campaign not found, redirecting to dashboard');
+          router.push('/campaign-dashboard');
+        }
+      } catch (error) {
+        console.error('Error loading campaign:', error);
+        router.push('/campaign-dashboard');
       }
-    }
-  }, [id, router])
+    };
 
-  const fetchLatestStats = async (campaign: Campaign) => {
+    loadCampaign();
+  }, [id, router]);
+
+  const fetchLatestStats = async (campaign: CampaignData) => {
     try {
       const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
         method: 'POST',
@@ -66,7 +82,7 @@ export default function CampaignDetails() {
     }
   }
 
-  const fetchDeviceStats = async (campaign: Campaign) => {
+  const fetchDeviceStats = async (campaign: CampaignData) => {
     try {
       const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
         method: 'POST',

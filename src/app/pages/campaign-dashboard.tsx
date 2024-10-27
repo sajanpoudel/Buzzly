@@ -15,59 +15,78 @@ import Link from 'next/link'
 import { getInitialsFromEmail } from '@/utils/stringUtils';
 import { getCampaigns, updateCampaignStats, Campaign } from '@/utils/campaignStore';
 import EmailTrackingStats from '@/components/EmailTrackingStats';
+import { useAuth } from '@/contexts/AuthContext'
+import { getCampaigns as getCampaignsDb } from '@/utils/db'
+import { CampaignData, CampaignType, DeviceInfo } from '@/types/database'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
-interface DeviceInfo {
-  device: string;
-  os: string;
-  browser: string;
-  count: number;
-}
-
-const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({ campaign, onClick }) => {
+const CampaignCard: React.FC<{ campaign: CampaignData; onClick: () => void }> = ({ campaign, onClick }) => {
+  const [stats, setStats] = useState(campaign.stats);
   const [deviceStats, setDeviceStats] = useState<DeviceInfo[]>([]);
 
   useEffect(() => {
-    const fetchDeviceStats = async () => {
+    const fetchStats = async () => {
       try {
         const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
           },
-          body: JSON.stringify({ trackingIds: campaign.trackingIds }),
+          body: JSON.stringify({ trackingIds: campaign.trackingIds })
         });
-        const data = await response.json();
-        const deviceMap = new Map<string, DeviceInfo>();
-        data.detailedStats.forEach((stat: any) => {
-          (stat.devices || []).forEach((device: any) => {
-            const key = `${device.device}-${device.os}-${device.browser}`;
-            if (deviceMap.has(key)) {
-              deviceMap.get(key)!.count++;
-            } else {
-              deviceMap.set(key, { ...device, count: 1 });
-            }
+
+        if (response.ok) {
+          const data = await response.json();
+          // Update local stats
+          setStats({
+            sent: campaign.recipients.length,
+            opened: data.totalOpened || 0,
+            clicked: data.totalClicks || 0,
+            converted: data.uniqueOpens || 0
           });
-        });
-        setDeviceStats(Array.from(deviceMap.values()));
+
+          // Update stats in Firestore
+          await updateDoc(doc(db, 'campaigns', campaign.id), {
+            stats: {
+              sent: campaign.recipients.length,
+              opened: data.totalOpened || 0,
+              clicked: data.totalClicks || 0,
+              converted: data.uniqueOpens || 0
+            },
+            updatedAt: new Date().toISOString()
+          });
+        }
       } catch (error) {
-        console.error('Error fetching device stats:', error);
+        console.error('Error fetching stats:', error);
       }
     };
 
-    fetchDeviceStats();
-  }, [campaign.trackingIds]);
+    // Fetch stats immediately and then every 30 seconds
+    fetchStats();
+    const interval = setInterval(fetchStats, 30000);
+
+    return () => clearInterval(interval);
+  }, [campaign.id, campaign.trackingIds, campaign.recipients.length]);
 
   return (
-    <Card className="mb-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={onClick}>
+    <Card 
+      className="mb-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer" 
+      onClick={onClick}
+    >
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-4">
             <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-2xl">
-              📧
+              {campaign.type === 'newsletter' ? '📰' : 
+               campaign.type === 'promotional' ? '🎯' : '📧'}
             </div>
             <div>
               <h3 className="text-lg font-semibold">{campaign.name}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{campaign.type}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {campaign.type.charAt(0).toUpperCase() + campaign.type.slice(1)}
+              </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -78,8 +97,8 @@ const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({ c
               {Math.ceil((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
             </span>
             <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
-              campaign.status === 'Running' ? 'text-green-800 bg-green-100' : 
-              campaign.status === 'Completed' ? 'text-blue-800 bg-blue-100' :
+              campaign.status === 'running' ? 'text-green-800 bg-green-100' : 
+              campaign.status === 'completed' ? 'text-blue-800 bg-blue-100' :
               'text-yellow-800 bg-yellow-100'
             }`}>
               {campaign.status}
@@ -89,19 +108,19 @@ const CampaignCard: React.FC<{ campaign: Campaign; onClick: () => void }> = ({ c
         <div className="grid grid-cols-4 gap-4 mt-6">
           <div>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Sent</p>
-            <p className="text-lg font-semibold">{campaign.stats.sent}</p>
+            <p className="text-lg font-semibold">{stats.sent}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Opened</p>
-            <p className="text-lg font-semibold">{campaign.stats.opened}</p>
+            <p className="text-lg font-semibold">{stats.opened}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Clicked</p>
-            <p className="text-lg font-semibold">{campaign.stats.clicked}</p>
+            <p className="text-lg font-semibold">{stats.clicked}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Converted</p>
-            <p className="text-lg font-semibold">{campaign.stats.converted}</p>
+            <p className="text-lg font-semibold">{stats.converted}</p>
           </div>
         </div>
         <div className="mt-4 text-sm text-gray-500">
@@ -118,7 +137,13 @@ export default function CampaignDashboard() {
   const [darkMode, setDarkMode] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignData[]>([]);
+  const [filters, setFilters] = useState({
+    type: 'all' as 'all' | CampaignType,
+    dateRange: undefined,
+    audienceSegment: '',
+    sortBy: ''
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   const toggleDarkMode = () => {
@@ -126,41 +151,27 @@ export default function CampaignDashboard() {
     document.documentElement.classList.toggle('dark')
   }
 
+  const { user } = useAuth()
+
   useEffect(() => {
-    const fetchUserInfo = async () => {
-      const storedTokens = localStorage.getItem('gmail_tokens');
-      if (storedTokens) {
-        const tokens = JSON.parse(storedTokens);
-        try {
-          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ tokens }),
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setUserInfo(data);
-          } else {
-            console.error('Failed to fetch user info');
-          }
-        } catch (error) {
-          console.error('Error fetching user info:', error);
-        }
+    const loadCampaigns = async () => {
+      if (!user) return;
+      
+      try {
+        setIsLoading(true);
+        console.log('Fetching campaigns for user:', user.id);
+        const userCampaigns = await getCampaignsDb(user.id);
+        console.log('Fetched campaigns:', userCampaigns);
+        setCampaigns(userCampaigns);
+      } catch (error) {
+        console.error('Error loading campaigns:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    const loadCampaigns = () => {
-      const storedCampaigns = getCampaigns();
-      console.log('Loaded campaigns:', storedCampaigns);
-      setCampaigns(storedCampaigns);
-      setIsLoading(false);
-    };
-
-    fetchUserInfo();
     loadCampaigns();
-  }, []);
+  }, [user]);
 
   const updateCampaignStatsFromServer = async (campaign: Campaign) => {
     try {
@@ -187,7 +198,7 @@ export default function CampaignDashboard() {
     }
   };
 
-  const handleCampaignClick = (campaign: Campaign) => {
+  const handleCampaignClick = (campaign: CampaignData) => {
     router.push(`/campaign/${campaign.id}`);
   };
 
@@ -289,7 +300,17 @@ export default function CampaignDashboard() {
                   />
                 ))
               ) : (
-                <p className="text-center text-gray-500 dark:text-gray-400">No campaigns found. Create your first campaign now!</p>
+                <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow">
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    No campaigns found. Create your first campaign now!
+                  </p>
+                  <Button 
+                    onClick={() => router.push('/create-campaign')}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    Create Campaign
+                  </Button>
+                </div>
               )}
             </div>
 

@@ -10,7 +10,15 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
-export const CampaignNameInput = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
+export const CampaignNameInput = ({ 
+  value = '', // Add default value
+  onChange, 
+  onSubmit 
+}: { 
+  value?: string; // Make value optional
+  onChange: (value: string) => void; 
+  onSubmit: () => void 
+}) => (
   <div className="space-y-2 w-full">
     <Label htmlFor="campaignName" className="text-sm font-medium">Campaign Name</Label>
     <Input
@@ -55,9 +63,17 @@ export const CampaignTypeSelect = ({
   </div>
 );
 
-export const SubjectInput = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
+export const SubjectInput = ({ 
+  value = '', // Provide default empty string
+  onChange, 
+  onSubmit 
+}: { 
+  value?: string; 
+  onChange: (value: string) => void; 
+  onSubmit: () => void 
+}) => (
   <div className="space-y-2 w-full">
-    <Label htmlFor="subject" className="text-sm font-medium">Subject</Label>
+    <Label htmlFor="subject">Subject</Label>
     <Input
       id="subject"
       placeholder="Enter email subject"
@@ -69,35 +85,49 @@ export const SubjectInput = ({ value, onChange, onSubmit }: { value: string; onC
           onSubmit();
         }
       }}
-      className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      className="w-full"
     />
   </div>
 );
 
-export const BodyTextarea = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
+export const BodyTextarea = ({ 
+  value = '', // Provide default empty string
+  onChange, 
+  onSubmit 
+}: { 
+  value?: string; 
+  onChange: (value: string) => void; 
+  onSubmit: () => void 
+}) => (
   <div className="space-y-2 w-full">
-    <Label htmlFor="body" className="text-sm font-medium">Email Body</Label>
+    <Label htmlFor="body">Body</Label>
     <Textarea
       id="body"
       placeholder="Enter email body"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onKeyPress={(e) => {
-        if (e.key === 'Enter' && e.ctrlKey) {
+        if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
           onSubmit();
         }
       }}
-      rows={10}
-      className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+      className="w-full"
+      rows={4}
     />
   </div>
 );
 
-export const RecipientFileUpload = ({ onChange }: { onChange: (file: File | null) => void }) => (
+export const RecipientFileUpload = ({ 
+  onChange,
+  recipients = [] // Add default value
+}: { 
+  onChange: (file: File | null) => void;
+  recipients?: { name: string; email: string }[];
+}) => (
   <div className="w-full p-4 border-2 border-dashed border-gray-300 rounded-md hover:border-blue-500 transition-colors duration-200">
     <FileUpload 
-      label="Upload CSV with recipients" 
+      label={`Upload CSV with recipients ${recipients.length > 0 ? `(${recipients.length} added)` : ''}`}
       accept=".csv" 
       onChange={onChange}
     />
@@ -141,31 +171,44 @@ export const TimePicker = ({ value, onChange }: { value: string; onChange: (valu
   </div>
 );
 
-export const TemplateDescriptionInput = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
+export const TemplateDescriptionInput = ({ 
+  value = '', // Provide default empty string
+  onChange, 
+  onSubmit 
+}: { 
+  value?: string; 
+  onChange: (value: string) => void; 
+  onSubmit: () => void 
+}) => (
   <div className="space-y-2 w-full">
-    <Label htmlFor="templateDescription" className="text-sm font-medium">Template Description</Label>
-    <div className="relative">
-      <Textarea
-        id="templateDescription"
-        placeholder="Describe the template you want to create..."
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyPress={(e) => {
-          if (e.key === 'Enter' && e.ctrlKey) {
-            e.preventDefault();
-            onSubmit();
-          }
-        }}
-        className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical pr-10"
-        rows={4}
-      />
-    </div>
+    <Label htmlFor="templateDescription">Template Description</Label>
+    <Textarea
+      id="templateDescription"
+      placeholder="Enter template description"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyPress={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
+      className="w-full"
+    />
   </div>
 );
 
-export const TemplateNameInput = ({ value, onChange, onSubmit }: { value: string; onChange: (value: string) => void; onSubmit: () => void }) => (
+export const TemplateNameInput = ({ 
+  value = '', // Provide default empty string
+  onChange, 
+  onSubmit 
+}: { 
+  value?: string; 
+  onChange: (value: string) => void; 
+  onSubmit: () => void 
+}) => (
   <div className="space-y-2 w-full">
-    <Label htmlFor="templateName" className="text-sm font-medium">Template Name</Label>
+    <Label htmlFor="templateName">Template Name</Label>
     <Input
       id="templateName"
       placeholder="Enter template name"
@@ -177,7 +220,7 @@ export const TemplateNameInput = ({ value, onChange, onSubmit }: { value: string
           onSubmit();
         }
       }}
-      className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      className="w-full"
     />
   </div>
 );

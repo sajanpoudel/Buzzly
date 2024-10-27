@@ -1,25 +1,6 @@
-export interface Campaign {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-  recipients: { name: string; email: string }[];
-  trackingIds: string[];
-  stats: {
-    sent: number;
-    opened: number;
-    clicked: number;
-    converted: number;
-  };
-  subject: string;
-  body: string;
-  isRecurring: boolean;
-  targetAudience: string;
-  scheduledDateTime?: string;
-  userEmail: string;
-}
+import { CampaignData } from '@/types/database';
+
+export type Campaign = CampaignData;
 
 const CAMPAIGNS_KEY = 'email_campaigns';
 

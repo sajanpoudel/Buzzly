@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, useAnimation, useViewportScroll, useTransform } from 'framer-motion'
 import { Button } from "@/components/ui/button"
 import { Mail, Send, Zap, ChevronDown, BarChart, Target, Sparkles } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 const RealisticHumanEmailAnimation: React.FC = () => {
   return (
@@ -51,7 +52,10 @@ const FloatingEmails: React.FC = () => {
 }
 
 export default function Login() {
+  const { signInWithGoogle } = useAuth()
   const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const parallaxRef = useRef<HTMLDivElement>(null)
   const controls = useAnimation()
@@ -81,16 +85,30 @@ export default function Login() {
 
   const handleGoogleLogin = async () => {
     try {
-      const token = localStorage.getItem('gmail_tokens');
-      if(token){
-        router.push('/dashboard');
-      } else {
-        window.location.href = 'https://emailapp-backend.onrender.com/auth/google'
-      }
+      setIsLoading(true)
+      setError(null)
+      
+      // First, redirect to backend for Gmail authentication
+      window.location.href = 'https://emailapp-backend.onrender.com/auth/google'
+      
+      // The backend will handle the redirect to auth-callback
+      // with the tokens after successful authentication
+      
     } catch (error) {
       console.error('Error during Google login:', error)
+      setError('Failed to sign in with Google. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
+
+  // Show error if there is one
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error])
 
   return (
     <div className="relative w-full min-h-screen overflow-hidden bg-[#000814] text-white">
@@ -132,11 +150,33 @@ export default function Login() {
           <Button 
             className="px-8 py-6 text-lg bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 rounded-full shadow-lg transform transition-all duration-500 hover:scale-105 flex items-center space-x-2" 
             onClick={handleGoogleLogin}
+            disabled={isLoading}
           >
-            <Mail className="w-6 h-6" />
-            <span>Sign in with Gmail</span>
+            {isLoading ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Signing in...</span>
+              </div>
+            ) : (
+              <>
+                <Mail className="w-6 h-6" />
+                <span>Sign in with Gmail</span>
+              </>
+            )}
           </Button>
         </motion.div>
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="mt-4 p-4 bg-red-500 text-white rounded-md"
+          >
+            {error}
+          </motion.div>
+        )}
+
         <motion.div
           className="absolute bottom-10 left-1/2 transform -translate-x-1/2"
           initial={{ opacity: 0, y: 20 }}
@@ -183,3 +223,4 @@ export default function Login() {
     </div>
   )
 }
+
