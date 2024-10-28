@@ -11,7 +11,8 @@ import {
   orderBy,
   Timestamp,
   startAt,
-  endAt
+  endAt,
+  deleteDoc
 } from 'firebase/firestore';
 import { UserData, CampaignData, TemplateData, EmailStats, CampaignType } from '@/types/database';
 
@@ -337,3 +338,25 @@ async function sendCampaignEmails(campaign: CampaignData) {
     throw error;
   }
 }
+
+// Add updateTemplate function
+export const updateTemplate = async (templateId: string, updates: Partial<TemplateData>) => {
+  const templateRef = doc(db, 'templates', templateId);
+  await updateDoc(templateRef, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
+  
+  // Get and return the updated template
+  const templateSnap = await getDoc(templateRef);
+  if (templateSnap.exists()) {
+    return templateSnap.data() as TemplateData;
+  }
+  throw new Error('Template not found');
+};
+
+// Add deleteTemplate function
+export const deleteTemplate = async (templateId: string) => {
+  const templateRef = doc(db, 'templates', templateId);
+  await deleteDoc(templateRef);  // Add deleteDoc to the imports from firebase/firestore
+};
