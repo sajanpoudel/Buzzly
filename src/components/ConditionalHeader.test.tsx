@@ -28,4 +28,9 @@ describe('ConditionalHeader', () => {
     const { container } = render(<ConditionalHeader />)
     expect(container).toBeEmptyDOMElement()
   })
+
+  it('shows the app header on other pages', () => {
+    render(<ConditionalHeader />)
+    expect(screen.getByRole('heading', { name: 'Your App Name' })).toBeInTheDocument()
+  })
 });
