@@ -13,54 +13,96 @@ interface CampaignAnalysis {
     isImproving: boolean;
     topPerformingDevice: string;
     peakEngagementTime?: string;
+    data: {
+      date: string;
+      openRate: number;
+      clickRate: number;
+    }[];
   };
   suggestions: string[];
+  analysis: string;
 }
 
-export async function analyzeCampaign(userId: string, campaignId?: string): Promise<string | CampaignAnalysis> {
+export async function analyzeCampaign(userId: string, campaignName?: string): Promise<string | CampaignAnalysis> {
   try {
     let campaign: CampaignData | null = null;
     
-    if (campaignId) {
-      // Get specific campaign
-      const campaignRef = await getDocs(
-        query(
-          collection(db, 'campaigns'),
-          where('id', '==', campaignId),
-          where('userId', '==', userId)
-        )
-      );
-      campaign = campaignRef.docs[0]?.data() as CampaignData;
-    } else {
-      // Get latest campaign
-      const campaignRef = await getDocs(
-        query(
-          collection(db, 'campaigns'),
-          where('userId', '==', userId),
-          orderBy('createdAt', 'desc'),
-          limit(1)
-        )
-      );
-      campaign = campaignRef.docs[0]?.data() as CampaignData;
+    if (!userId) {
+      return "No user ID provided. Please make sure you're logged in.";
     }
 
-    if (!campaign) {
-      return "I couldn't find any campaigns to analyze. Would you like to create a new campaign?";
+    if (campaignName) {
+      console.log(`Searching for campaign with name: "${campaignName}" for user: "${userId}"`);
+      // Get specific campaign by exact name match
+      const campaignsRef = collection(db, 'campaigns');
+      const q = query(
+        campaignsRef,
+        where('userId', '==', userId),
+        where('name', '==', campaignName.trim()) // Add trim() to handle any extra spaces
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        campaign = {
+          id: querySnapshot.docs[0].id,
+          ...querySnapshot.docs[0].data()
+        } as CampaignData;
+        console.log('Found campaign:', campaign);
+      } else {
+        console.log(`No campaign found with name "${campaignName}" for user "${userId}"`);
+        return `I couldn't find a campaign named "${campaignName}". Please check if the campaign name is correct and try again.`;
+      }
+    } else {
+      // Get latest campaign
+      const campaignsRef = collection(db, 'campaigns');
+      const q = query(
+        campaignsRef,
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        campaign = {
+          id: querySnapshot.docs[0].id,
+          ...querySnapshot.docs[0].data()
+        } as CampaignData;
+      } else {
+        return "I couldn't find any campaigns. Would you like to create one?";
+      }
     }
 
     // Calculate metrics
-    const totalRecipients = campaign.recipients.length;
+    const totalRecipients = campaign.recipients.length || 1;
     const openRate = (campaign.stats.opened / totalRecipients) * 100;
     const clickRate = (campaign.stats.clicked / totalRecipients) * 100;
     const conversionRate = (campaign.stats.converted / totalRecipients) * 100;
 
+    // Create trend data
+    const trendData = [
+      {
+        date: new Date(campaign.startDate).toLocaleDateString(),
+        openRate: openRate,
+        clickRate: clickRate
+      },
+      {
+        date: new Date(campaign.endDate).toLocaleDateString(),
+        openRate: openRate,
+        clickRate: clickRate
+      }
+    ];
+
     // Analyze device info
     const deviceBreakdown = analyzeDeviceInfo(campaign.stats.deviceInfo || []);
+    const topPerformingDevice = Object.entries(deviceBreakdown)
+      .sort(([, a], [, b]) => b - a)[0]?.[0] || 'Unknown';
 
     // Generate suggestions
     const suggestions = generateSuggestions(campaign, openRate, clickRate);
 
-    const analysis = {
+    const analysis: CampaignAnalysis = {
       stats: {
         openRate,
         clickRate,
@@ -69,10 +111,12 @@ export async function analyzeCampaign(userId: string, campaignId?: string): Prom
       },
       trends: {
         isImproving: openRate > 20,
-        topPerformingDevice: Object.entries(deviceBreakdown)
-          .sort(([, a], [, b]) => b - a)[0]?.[0] || 'Unknown'
+        topPerformingDevice,
+        peakEngagementTime: undefined,
+        data: trendData
       },
-      suggestions
+      suggestions,
+      analysis: `Campaign "${campaign.name}" Performance Analysis`
     };
 
     return analysis;

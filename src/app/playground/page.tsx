@@ -784,31 +784,75 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-pro" })
-      const prompt = `Create a concise, formal, and compelling email campaign based on the following:
-                      Campaign Name: "${name}"
-                      Campaign Description: "${description}"
-                      
-                      Guidelines:
-                      1. Craft a powerful and concise subject line (without any prefix or HTML).
-                      2. For the email body, create engaging, personalized, and concise content with the following structure:
-                         a. Start directly with a brief, professional greeting (do not include any labels like 'Email Body:')
-                         b. A concise introduction (2-3 sentences max)
-                         c. 2-3 key points or benefits (as a short, visually appealing bullet list)
-                         d. A clear and brief call-to-action
-                         e. A formal closing
-                      
-                      Use appropriate HTML tags for formatting the body, including:
-                      - <h1> for the main headline (use sparingly)
-                      - <p> for paragraphs
-                      - <strong> and <em> for emphasis
-                      - <ul> and <li> for bullet points
-                      - <a> for the call-to-action button
-                      
-                      Ensure the tone is formal yet engaging. Make the content concise and impactful.
-                      Do not use placeholders like [Name] or [Company]. Instead, use general terms or the actual campaign name.
-                      Do not include any labels like 'Subject:' or 'Email Body:' in the generated content.
-                      Do not include any labels like 'Subject:' or 'Email Body:' in the generated content.`;
+      const prompt = `Create a naturally flowing, persuasive email that feels personally written, based on:
+
+      Campaign: "${name}"
+      Context: "${description}"
       
+      Composition Guidelines:
+      1. Subject Line Creation:
+         - Craft an attention-grabbing subject line (under 50 characters)
+         - Evoke curiosity without being clickbait
+         - Avoid spam trigger words and excessive punctuation
+         
+      2. Email Structure:
+         • Opening (Natural Connection):
+           - Use conversational greetings that feel personal
+           - Reference timely or relevant context when appropriate
+           - Build immediate rapport in first sentence
+         
+         • Core Message (Value Proposition):
+           - Lead with recipient's potential gain or pain point
+           - Present solution naturally, as if explaining to a colleague
+           - Use concrete examples or mini-stories when relevant
+         
+         • Supporting Details:
+           - Include 2-3 specific benefits/features
+           - Frame benefits from recipient's perspective
+           - Use social proof or success metrics when available
+         
+         • Call-to-Action:
+           - Make it feel like a natural next step
+           - Create subtle urgency without pressure
+           - Keep it specific and actionable
+      
+      Style Requirements:
+      • Tone: Professional yet conversational, like a trusted advisor
+      • Language: 
+        - Use contractions naturally (I'm, we're, you'll)
+        - Vary sentence length for natural rhythm
+        - Include transitional phrases for flow
+        - Write at 8th-grade reading level
+      • Personalization:
+        - Weave campaign specifics naturally into content
+        - Address common reader concerns proactively
+        - Make industry references feel organic
+      
+      Formatting Guidelines:
+      <h1> - Use only for primary headline if needed
+      <p> - Natural paragraph breaks
+      <strong> - Highlight key benefits or action items
+      <em> - Subtle emphasis for important points
+      <ul> - Clean, scannable bullet points
+      <li> - Concise benefit statements
+      <a> - Action buttons that feel inviting
+      
+      Additional Parameters:
+      - Maximum 250 words total
+      - Each paragraph 2-3 sentences
+      - Maintain consistent voice throughout
+      - End with warm professional closing
+      - Avoid corporate jargon and buzzwords
+      - Write as if sending to one person, not a mass audience
+      
+      Do not:
+      - Use generic placeholders
+      - Include meta labels (Subject:, Body:, etc.)
+      - Add unnecessary formatting
+      - Use manipulative language
+      - Write overly long paragraphs
+      - Include internal notes or instructions`;
+
       const result = await model.generateContent(prompt)
       const response = await result.response
       const generatedText = response.text()
@@ -868,48 +912,22 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
     setIsLoading(true);
 
     try {
-      if (isCreatingCampaign) {
-        await handleCampaignCreation(input);
-      } else {
-        const response = await handleUserInput(userMessage, user.id, {
-          startCampaignCreation: () => {
-            setIsCreatingCampaign(true);
-            setIsFormVisible(true);
-            setCurrentStep(1);
-            setCampaignData(prev => ({ ...prev, name: input }));
-            setMessages(prev => [
-              ...prev,
-              { role: 'assistant', content: `Great! I've set the campaign name to "${input}". Now, please provide a brief description of the campaign.` }
-            ]);
-          },
-          startEmailCreation: () => {
-            setIsCreatingEmail(true);
-            setIsFormVisible(true);
-            setCurrentStep(1);
-          },
-          openPaymentForm: () => {
-            setIsPaymentFormVisible(true);
-          },
-          startTemplateCreation: () => {
-            setIsCreatingTemplate(true);
-            setIsFormVisible(true);
-            setCurrentStep(1);
-          }
-        });
-
-
-      // Create assistant message with proper typing
+      const response = await handlePlaygroundQuery(userMessage, user.id);
+      
       const assistantMessage: Message = {
         role: 'assistant',
-        content: typeof response === 'string' ? response : response.analysis,
-        analysis: typeof response === 'string' ? undefined : response,
-        component: typeof response !== 'string' && response.needsVisualization ? 
-          // Add your visualization component here
-          <div>Visualization Component</div> : undefined
+        content: response.text,
+        component: response.component
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-    }
+
+      if (response.text.includes("create a new campaign")) {
+        setIsCreatingCampaign(true);
+        setIsFormVisible(true);
+        setCurrentStep(1);
+        setCampaignData(prev => ({ ...prev, name: input }));
+      }
     } catch (error) {
       console.error('Error in handleSubmit:', error);
       setMessages(prev => [...prev, { 
@@ -950,7 +968,7 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
             // Replace [Name] placeholder in email body for preview
             const updatedBody = prev.body?.replace(
               /\[Name\]/g, 
-              `[Recipient's Name]` // Using a generic placeholder for preview
+              `[Name]` // Using a generic placeholder for preview
             ) || '';
 
             return {

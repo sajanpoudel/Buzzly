@@ -65,11 +65,27 @@ export async function handleUserInput(input: string, userId: string, uiCallbacks
       
       Return a JSON object with:
       {
-        "type": "analysis" | "improvement" | "overall" | "other",
+        "type": "specific_analysis" | "specific_improvement" | "overall" | "other",
         "campaignName": string | null,
         "timeRange": number | null,
         "needsVisualization": boolean
       }
+
+      Examples:
+      "How is my campaign 'Summer Sale' doing?" -> 
+        { "type": "specific_analysis", "campaignName": "Summer Sale", "timeRange": null, "needsVisualization": true }
+      
+      "Analyze the campaign 'Welcome Email'" -> 
+        { "type": "specific_analysis", "campaignName": "Welcome Email", "timeRange": null, "needsVisualization": true }
+      
+      "How can I improve my 'Newsletter' campaign?" -> 
+        { "type": "specific_improvement", "campaignName": "Newsletter", "timeRange": null, "needsVisualization": true }
+      
+      "Show overall performance" -> 
+        { "type": "overall", "campaignName": null, "timeRange": 30, "needsVisualization": true }
+      
+      "Create a new campaign" -> 
+        { "type": "other", "campaignName": null, "timeRange": null, "needsVisualization": false }
     `;
 
     const analysisResult = await model.generateContent(analysisPrompt);
@@ -80,25 +96,58 @@ export async function handleUserInput(input: string, userId: string, uiCallbacks
       queryType = { type: "other" };
     }
 
-    if (queryType.type === "analysis" || queryType.type === "improvement") {
+    if (queryType.type === "specific_analysis" || queryType.type === "specific_improvement") {
       const response = await analyzeCampaign(userId, queryType.campaignName);
       
       if (typeof response === 'string') {
         return response;
       }
 
+      // Updated prompt for better insights
       const insightPrompt = `
-        Given this campaign performance data:
-        ${JSON.stringify(response)}
-        
-        ${queryType.type === "analysis" ? 
-          "Provide a brief analysis of the campaign performance in a conversational tone." :
-          "Provide specific suggestions for improvement based on the metrics."
-        }
-        Keep it concise and actionable.
+        Analyze this campaign performance data:
+        Campaign Name: "${queryType.campaignName}"
+        Open Rate: ${response.stats.openRate}%
+        Click Rate: ${response.stats.clickRate}%
+        Conversion Rate: ${response.stats.conversionRate}%
+        Top Device: ${response.trends.topPerformingDevice}
+
+        Provide a clear analysis in this exact format, with proper line breaks between sections and points:
+
+        Campaign Performance
+
+        • Open Rate: ${response.stats.openRate}% - [interpret open rate]
+        • Click Rate: ${response.stats.clickRate}% - [interpret click rate]
+        • Conversion Rate: ${response.stats.conversionRate}% - [interpret conversion rate]
+
+        Key Improvements Needed
+
+        1. [First major improvement area]
+
+        2. [Second major improvement area]
+
+        3. [Third major improvement area]
+
+        Action Steps
+
+        1. [First specific action] - make it clear and actionable
+
+        2. [Second specific action] - make it clear and actionable
+
+        3. [Third specific action] - make it clear and actionable
+
+        Rules for response:
+        1. Do not use any markdown formatting (no **, no #, no html tags)
+        2. Keep interpretations concise but meaningful
+        3. Make improvements specific and actionable
+        4. Use proper line breaks between sections and numbered points
+        5. Start each bullet point on a new line
+        6. Make action steps highly specific and practical
+        7. Use plain text only
       `;
 
       const insights = await model.generateContent(insightPrompt);
+      
       return {
         analysis: insights.response.text(),
         stats: response.stats,
