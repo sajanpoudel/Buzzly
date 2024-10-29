@@ -1,14 +1,37 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Search, Moon, Bell, ChevronDown, LayoutDashboard, Mail, Users, Settings, MoreVertical, Calendar as CalendarIcon, Upload, Sparkles, Sun, ChevronLeft, ChevronRight, Menu } from 'lucide-react'
+import React, { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import {
+  Search,
+  Moon,
+  Bell,
+  ChevronDown,
+  LayoutDashboard,
+  Mail,
+  Users,
+  Settings,
+  MoreVertical,
+  Calendar as CalendarIcon,
+  Upload,
+  Sparkles,
+  Sun,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+} from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -16,52 +39,69 @@ import { Calendar } from "@/components/ui/calendar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format } from "date-fns"
 import { enUS } from "date-fns/locale"
-import Link from 'next/link'
-import Sidebar from '@/components/Sidebar'
-import SuccessModal from '@/components/SuccessModal'
-import { getInitialsFromEmail } from '@/utils/stringUtils';
-import { saveCampaign, Campaign } from '@/utils/campaignStore';
+import Link from "next/link"
+import Sidebar from "@/components/Sidebar"
+import SuccessModal from "@/components/SuccessModal"
+import { getInitialsFromEmail } from "@/utils/stringUtils"
+import { saveCampaign, Campaign } from "@/utils/campaignStore"
 
 const emailTemplates = [
-  { id: 1, name: "Welcome Email", subject: "Welcome to Our Service!", body: "Dear [Name],\n\nWelcome to our service! We're excited to have you on board..." },
-  { id: 2, name: "Monthly Newsletter", subject: "Your Monthly Update", body: "Hello [Name],\n\nHere's what's new this month..." },
-  { id: 3, name: "Product Announcement", subject: "Introducing Our Latest Product", body: "Hi [Name],\n\nWe're thrilled to announce our newest product..." },
+  {
+    id: 1,
+    name: "Welcome Email",
+    subject: "Welcome to Our Service!",
+    body: "Dear [Name],\n\nWelcome to our service! We're excited to have you on board...",
+  },
+  {
+    id: 2,
+    name: "Monthly Newsletter",
+    subject: "Your Monthly Update",
+    body: "Hello [Name],\n\nHere's what's new this month...",
+  },
+  {
+    id: 3,
+    name: "Product Announcement",
+    subject: "Introducing Our Latest Product",
+    body: "Hi [Name],\n\nWe're thrilled to announce our newest product...",
+  },
 ]
 
 export default function CreateCampaign() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userEmail, setUserEmail] = useState('')
+  const [userEmail, setUserEmail] = useState("")
   const [tokens, setTokens] = useState(null)
   const [darkMode, setDarkMode] = useState(false)
-  const [campaignName, setCampaignName] = useState('')
-  const [campaignType, setCampaignType] = useState('')
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
+  const [campaignName, setCampaignName] = useState("")
+  const [campaignType, setCampaignType] = useState("")
+  const [subject, setSubject] = useState("")
+  const [body, setBody] = useState("")
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
-  const [targetAudience, setTargetAudience] = useState('')
+  const [targetAudience, setTargetAudience] = useState("")
   const [isRecurring, setIsRecurring] = useState(false)
-  const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState("")
   const [audienceFile, setAudienceFile] = useState<File | null>(null)
-  const [activeTab, setActiveTab] = useState('details')
+  const [activeTab, setActiveTab] = useState("details")
   const [csvData, setCsvData] = useState<{ name: string; email: string }[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalMessage, setModalMessage] = useState('')
-  const [trackingIds, setTrackingIds] = useState<string[]>([]);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
+  const [modalMessage, setModalMessage] = useState("")
+  const [trackingIds, setTrackingIds] = useState<string[]>([])
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(
+    null
+  )
 
   useEffect(() => {
     const checkAuth = async () => {
-      const storedTokens = localStorage.getItem('gmail_tokens')
+      const storedTokens = localStorage.getItem("gmail_tokens")
       if (storedTokens) {
         const parsedTokens = JSON.parse(storedTokens)
         setTokens(parsedTokens)
         setIsAuthenticated(true)
         // Fetch user email using the access token
         try {
-          const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
             headers: {
               Authorization: `Bearer ${parsedTokens.access_token}`,
             },
@@ -69,10 +109,10 @@ export default function CreateCampaign() {
           const data = await response.json()
           setUserEmail(data.email)
         } catch (error) {
-          console.error('Error fetching user info:', error)
+          console.error("Error fetching user info:", error)
         }
       } else {
-        router.push('/') // Redirect to login page if not authenticated
+        router.push("/") // Redirect to login page if not authenticated
       }
     }
     checkAuth()
@@ -80,60 +120,68 @@ export default function CreateCampaign() {
 
   useEffect(() => {
     const fetchUserInfo = async () => {
-      const storedTokens = localStorage.getItem('gmail_tokens');
+      const storedTokens = localStorage.getItem("gmail_tokens")
       if (storedTokens) {
-        const tokens = JSON.parse(storedTokens);
+        const tokens = JSON.parse(storedTokens)
         try {
-          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
-            method: 'POST',
+          const response = await fetch("https://emailapp-backend.onrender.com/auth/user-info", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({ tokens }),
-          });
+          })
           if (response.ok) {
-            const data = await response.json();
-            setUserInfo(data);
+            const data = await response.json()
+            setUserInfo(data)
           } else {
-            console.error('Failed to fetch user info');
+            console.error("Failed to fetch user info")
           }
         } catch (error) {
-          console.error('Error fetching user info:', error);
+          console.error("Error fetching user info:", error)
         }
       }
-    };
+    }
 
-    fetchUserInfo();
-  }, []);
+    fetchUserInfo()
+  }, [])
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
-    document.documentElement.classList.toggle('dark')
+    document.documentElement.classList.toggle("dark")
   }
 
   const handleSaveCampaign = async () => {
     if (!isAuthenticated) {
-      console.error('User is not authenticated');
-      setModalMessage('You must be authenticated to create a campaign.');
-      setIsModalOpen(true);
-      return;
+      console.error("User is not authenticated")
+      setModalMessage("You must be authenticated to create a campaign.")
+      setIsModalOpen(true)
+      return
     }
 
     // Check if all required fields are filled
-    if (!campaignName || !campaignType || !subject || !body || !startDate || !endDate || csvData.length === 0) {
-      setModalMessage('Please fill in all required fields and upload a CSV file.');
-      setIsModalOpen(true);
-      return;
+    if (
+      !campaignName ||
+      !campaignType ||
+      !subject ||
+      !body ||
+      !startDate ||
+      !endDate ||
+      csvData.length === 0
+    ) {
+      setModalMessage("Please fill in all required fields and upload a CSV file.")
+      setIsModalOpen(true)
+      return
     }
 
     try {
-      const response = await fetch('https://emailapp-backend.onrender.com/auth/send-email', {
-        method: 'POST',
+      const response = await fetch("https://emailapp-backend.onrender.com/auth/send-email", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
         },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify({
           recipients: csvData,
           subject,
@@ -141,22 +189,22 @@ export default function CreateCampaign() {
           userEmail,
           tokens,
         }),
-      });
+      })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const result = await response.json();
-      console.log('Emails sent successfully:', result);
-      
+      const result = await response.json()
+      console.log("Emails sent successfully:", result)
+
       // Store tracking IDs
-      const newTrackingIds = result.info.map((item: any) => item.trackingId);
-      setTrackingIds(prevIds => {
-        const updatedIds = [...prevIds, ...newTrackingIds];
-        localStorage.setItem('trackingIds', JSON.stringify(updatedIds));
-        return updatedIds;
-      });
+      const newTrackingIds = result.info.map((item: any) => item.trackingId)
+      setTrackingIds((prevIds) => {
+        const updatedIds = [...prevIds, ...newTrackingIds]
+        localStorage.setItem("trackingIds", JSON.stringify(updatedIds))
+        return updatedIds
+      })
 
       // Save campaign to local storage
       const newCampaign: Campaign = {
@@ -165,34 +213,38 @@ export default function CreateCampaign() {
         type: campaignType,
         subject,
         body,
-        startDate: startDate?.toISOString() || '',
-        endDate: endDate?.toISOString() || '',
+        startDate: startDate?.toISOString() || "",
+        endDate: endDate?.toISOString() || "",
         isRecurring,
         targetAudience,
         recipients: csvData,
-        status: 'Sent',
+        status: "Sent",
         stats: {
           sent: result.info.length,
           opened: 0,
           clicked: 0,
-          converted: 0
+          converted: 0,
         },
-        trackingIds: newTrackingIds
-      };
-      saveCampaign(newCampaign);
+        trackingIds: newTrackingIds,
+      }
+      saveCampaign(newCampaign)
 
-      setModalMessage(`Campaign "${campaignName}" created and ${result.info.length} emails sent successfully!`);
-      setIsModalOpen(true);
+      setModalMessage(
+        `Campaign "${campaignName}" created and ${result.info.length} emails sent successfully!`
+      )
+      setIsModalOpen(true)
     } catch (error) {
-      console.error('Error saving campaign and sending emails:', error);
-      setModalMessage(`Error creating campaign and sending emails: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setIsModalOpen(true);
+      console.error("Error saving campaign and sending emails:", error)
+      setModalMessage(
+        `Error creating campaign and sending emails: ${error instanceof Error ? error.message : "Unknown error"}`
+      )
+      setIsModalOpen(true)
     }
-  };
+  }
 
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplate(templateId)
-    const template = emailTemplates.find(t => t.id.toString() === templateId)
+    const template = emailTemplates.find((t) => t.id.toString() === templateId)
     if (template) {
       setSubject(template.subject)
       setBody(template.body)
@@ -205,9 +257,9 @@ export default function CreateCampaign() {
       const reader = new FileReader()
       reader.onload = (e) => {
         const text = e.target?.result as string
-        const rows = text.split('\n').slice(1) // Skip header row
-        const parsedData = rows.map(row => {
-          const [name, email] = row.split(',')
+        const rows = text.split("\n").slice(1) // Skip header row
+        const parsedData = rows.map((row) => {
+          const [name, email] = row.split(",")
           return { name: name.trim(), email: email.trim() }
         })
         setCsvData(parsedData)
@@ -218,18 +270,18 @@ export default function CreateCampaign() {
   }
 
   const handleNext = () => {
-    if (activeTab === 'details') {
-      setActiveTab('content')
-    } else if (activeTab === 'content') {
-      setActiveTab('audience')
+    if (activeTab === "details") {
+      setActiveTab("content")
+    } else if (activeTab === "content") {
+      setActiveTab("audience")
     }
   }
 
   const handleBack = () => {
-    if (activeTab === 'content') {
-      setActiveTab('details')
-    } else if (activeTab === 'audience') {
-      setActiveTab('content')
+    if (activeTab === "content") {
+      setActiveTab("details")
+    } else if (activeTab === "audience") {
+      setActiveTab("content")
     }
   }
 
@@ -238,7 +290,7 @@ export default function CreateCampaign() {
   }
 
   return (
-    <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
+    <div className={`flex flex-col h-screen ${darkMode ? "dark" : ""}`}>
       <header className="bg-white dark:bg-gray-800 shadow-sm lg:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
@@ -252,14 +304,14 @@ export default function CreateCampaign() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
-          darkMode={darkMode} 
+        <Sidebar
+          darkMode={darkMode}
           toggleDarkMode={toggleDarkMode}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
           className="hidden lg:block"
         />
-        
+
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">
           <div className="max-w-4xl mx-auto">
@@ -277,7 +329,7 @@ export default function CreateCampaign() {
                     <AvatarImage src={userInfo.picture} alt={userInfo.name || userInfo.email} />
                   ) : (
                     <AvatarFallback>
-                      {userInfo ? getInitialsFromEmail(userInfo.email) : 'U'}
+                      {userInfo ? getInitialsFromEmail(userInfo.email) : "U"}
                     </AvatarFallback>
                   )}
                 </Avatar>
@@ -294,9 +346,15 @@ export default function CreateCampaign() {
               <CardContent>
                 <Tabs value={activeTab} className="w-full">
                   <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="details" onClick={() => setActiveTab('details')}>Details</TabsTrigger>
-                    <TabsTrigger value="content" onClick={() => setActiveTab('content')}>Content</TabsTrigger>
-                    <TabsTrigger value="audience" onClick={() => setActiveTab('audience')}>Audience</TabsTrigger>
+                    <TabsTrigger value="details" onClick={() => setActiveTab("details")}>
+                      Details
+                    </TabsTrigger>
+                    <TabsTrigger value="content" onClick={() => setActiveTab("content")}>
+                      Content
+                    </TabsTrigger>
+                    <TabsTrigger value="audience" onClick={() => setActiveTab("audience")}>
+                      Audience
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="details">
                     <form className="space-y-6">
@@ -333,7 +391,11 @@ export default function CreateCampaign() {
                                 className={`w-full justify-start text-left font-normal ${!startDate && "text-muted-foreground"}`}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {startDate ? format(startDate, "PPP") : <span>Pick a start date</span>}
+                                {startDate ? (
+                                  format(startDate, "PPP")
+                                ) : (
+                                  <span>Pick a start date</span>
+                                )}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -358,11 +420,7 @@ export default function CreateCampaign() {
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={endDate}
-                                onSelect={setEndDate}
-                              />
+                              <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
                             </PopoverContent>
                           </Popover>
                         </div>
@@ -445,7 +503,10 @@ export default function CreateCampaign() {
                             onChange={handleFileUpload}
                             className="flex-grow"
                           />
-                          <Button variant="outline" onClick={() => document.getElementById('audienceFile')?.click()}>
+                          <Button
+                            variant="outline"
+                            onClick={() => document.getElementById("audienceFile")?.click()}
+                          >
                             <Upload className="mr-2 h-4 w-4" />
                             Upload
                           </Button>
@@ -461,17 +522,26 @@ export default function CreateCampaign() {
                 </Tabs>
 
                 <div className="flex justify-between mt-8">
-                  {activeTab !== 'details' && (
-                    <Button variant="outline" onClick={() => setActiveTab(activeTab === 'content' ? 'details' : 'content')}>
+                  {activeTab !== "details" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveTab(activeTab === "content" ? "details" : "content")}
+                    >
                       Back
                     </Button>
                   )}
-                  {activeTab === 'audience' ? (
-                    <Button onClick={handleSaveCampaign} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
+                  {activeTab === "audience" ? (
+                    <Button
+                      onClick={handleSaveCampaign}
+                      className="bg-purple-600 hover:bg-purple-700 text-white ml-auto"
+                    >
                       Create Campaign
                     </Button>
                   ) : (
-                    <Button onClick={() => setActiveTab(activeTab === 'details' ? 'content' : 'audience')} className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
+                    <Button
+                      onClick={() => setActiveTab(activeTab === "details" ? "content" : "audience")}
+                      className="bg-purple-600 hover:bg-purple-700 text-white ml-auto"
+                    >
                       Next
                     </Button>
                   )}
@@ -487,19 +557,19 @@ export default function CreateCampaign() {
         onClose={() => setIsModalOpen(false)}
         message={modalMessage}
       />
-      
+
       {/* Mobile sidebar overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         ></div>
       )}
 
       {/* Mobile sidebar */}
-      <Sidebar 
-        darkMode={darkMode} 
-        toggleDarkMode={toggleDarkMode} 
+      <Sidebar
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
         className="lg:hidden"
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
