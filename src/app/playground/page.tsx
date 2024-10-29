@@ -30,15 +30,37 @@ import Papa from 'papaparse'
 import dynamic from 'next/dynamic'
 import DOMPurify from 'dompurify'
 import 'react-quill/dist/quill.snow.css';
-import { useAuth } from '@/contexts/AuthContext';  // Add this import
 import { CampaignData, CampaignType, TemplateData as DbTemplateData } from '@/types/database';  // Rename to avoid conflict
 import { getTemplates } from '@/utils/db';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+
+import { handlePlaygroundQuery } from '@/playground/functions/playgroundFunctions';
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
 
+interface AnalysisResponse {
+  analysis: string;
+  stats?: {
+    openRate: number;
+    clickRate: number;
+    conversionRate: number;
+    deviceBreakdown: { [key: string]: number };
+  };
+  trends?: {
+    isImproving: boolean;
+    topPerformingDevice: string;
+    peakEngagementTime?: string;
+  };
+  suggestions?: string[];
+  needsVisualization?: boolean;
+}
+
 interface Message {
-  role: 'user' | 'assistant'
-  content: string
+  role: 'user' | 'assistant';
+  content: string;
+  component?: React.ReactNode;
+  analysis?: AnalysisResponse;
 }
 
 interface CampaignState {
@@ -533,8 +555,8 @@ const getTemplateType = (templateId: string): CampaignType => {
 };
 
 export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: PageProps) {
-  const { user } = useAuth();  // Add this line
-  const [darkMode, setDarkMode] = useState(false)
+  const router = useRouter();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: "Hello! I'm your AI assistant for email campaigns. How can I help you today?" }
   ])
@@ -589,6 +611,17 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
 
   // Add state for AI generation
   const [isGenerating, setIsGenerating] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);  // Add darkMode state
+  const handleCampaignCreation = async (input: string) => {
+    setIsCreatingCampaign(true);
+    setIsFormVisible(true);
+    setCurrentStep(1);
+    setCampaignData(prev => ({ ...prev, name: input }));
+    setMessages(prev => [
+      ...prev,
+      { role: 'assistant', content: `Great! I've set the campaign name to "${input}". Now, please provide a brief description of the campaign.` }
+    ]);
+  };
 
   // Add template preview state
   const [templatePreview, setTemplatePreview] = useState('');
@@ -826,27 +859,28 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim()) return
+    e.preventDefault();
+    if (!input.trim() || !user) return;
 
-    setMessages(prev => [...prev, { role: 'user', content: input }])
-    setInput('')
-    setIsLoading(true)
+    const userMessage = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsLoading(true);
 
     try {
       if (isCreatingCampaign) {
-        await handleCampaignCreation(input)
+        await handleCampaignCreation(input);
       } else {
-        const response = await handleUserInput(input, {
+        const response = await handleUserInput(userMessage, user.id, {
           startCampaignCreation: () => {
-            setIsCreatingCampaign(true)
-            setIsFormVisible(true)
-            setCurrentStep(1)
-            setCampaignData(prev => ({ ...prev, name: input }))
+            setIsCreatingCampaign(true);
+            setIsFormVisible(true);
+            setCurrentStep(1);
+            setCampaignData(prev => ({ ...prev, name: input }));
             setMessages(prev => [
               ...prev,
               { role: 'assistant', content: `Great! I've set the campaign name to "${input}". Now, please provide a brief description of the campaign.` }
-            ])
+            ]);
           },
           startEmailCreation: () => {
             setIsCreatingEmail(true);
@@ -860,29 +894,32 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
             setIsCreatingTemplate(true);
             setIsFormVisible(true);
             setCurrentStep(1);
-          },
-        })
+          }
+        });
 
-        setMessages(prev => [...prev, { role: 'assistant', content: response }])
-      }
-    } catch (error) {
-      console.error('Error in handleSubmit:', error)
-      setMessages(prev => [...prev, { role: 'assistant', content: 'I apologize, but I encountered an error. Could you please try asking your question in a different way?' }])
-    } finally {
-      setIsLoading(false)
+
+      // Create assistant message with proper typing
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: typeof response === 'string' ? response : response.analysis,
+        analysis: typeof response === 'string' ? undefined : response,
+        component: typeof response !== 'string' && response.needsVisualization ? 
+          // Add your visualization component here
+          <div>Visualization Component</div> : undefined
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
     }
-  }
-
-  const handleCampaignCreation = async (input: string) => {
-    setIsCreatingCampaign(true);
-    setIsFormVisible(true);
-    setCurrentStep(1);
-    setCampaignData(prev => ({ ...prev, name: input }));
-    setMessages(prev => [
-      ...prev,
-      { role: 'assistant', content: `Great! I've set the campaign name to "${input}". Now, please provide a brief description of the campaign.` }
-    ]);
-  }
+    } catch (error) {
+      console.error('Error in handleSubmit:', error);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Sorry, I encountered an error processing your request.' 
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFileUpload = (file: File | null) => {
     if (file) {
