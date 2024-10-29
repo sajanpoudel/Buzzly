@@ -1826,11 +1826,16 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
                         className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div className={`max-w-[80%] p-4 rounded-lg ${
-                          message.role === 'user' 
-                            ? 'bg-primary text-primary-foreground' 
+                          message.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
                             : 'bg-background text-muted-foreground'
                         }`}>
-                          <p className="text-sm">{message.content}</p>
+                          <p className="text-sm whitespace-pre-line">{message.content}</p>
+                          {message.component && (
+                            <div className="mt-4 w-full">
+                              {message.component}
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     ))}
@@ -1845,8 +1850,8 @@ export default function EnhancedEmailCampaignGenerator({ searchParams = {} }: Pa
                         placeholder="Type your message here..."
                         className="pr-12 py-3 text-sm bg-background border-input focus:border-ring focus:ring-ring rounded-lg w-full"
                       />
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         disabled={isLoading}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-2 transition-colors duration-200"
                       >

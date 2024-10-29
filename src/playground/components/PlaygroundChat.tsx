@@ -58,6 +58,15 @@ export const PlaygroundChat: React.FC = () => {
     try {
       const response = await handlePlaygroundQuery(userMessage, user.id);
       
+      // Create assistant message with visualization
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: response.text,
+        component: response.component // This will contain the graph and other visualizations
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+
       // Show appropriate form based on response
       if (response.text.includes("create a new campaign")) {
         setRightPanel({
@@ -78,12 +87,6 @@ export const PlaygroundChat: React.FC = () => {
           data: { subject: '', body: '', recipients: [] }
         });
       }
-      
-      setMessages(prev => [...prev, { 
-        role: 'assistant',
-        content: response.text,
-        component: response.component
-      }]);
     } catch (error) {
       console.error('Error handling query:', error);
       setMessages(prev => [...prev, { 
@@ -240,9 +243,9 @@ export const PlaygroundChat: React.FC = () => {
           {messages.map((message, index) => (
             <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] ${message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-lg p-3`}>
-                <p>{message.content}</p>
+                <p className="whitespace-pre-line">{message.content}</p>
                 {message.component && (
-                  <div className="mt-4">
+                  <div className="mt-4 w-full">
                     {message.component}
                   </div>
                 )}
