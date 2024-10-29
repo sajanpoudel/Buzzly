@@ -1,12 +1,12 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/router'
+import React, { useState, useEffect } from "react"
+import { useRouter } from "next/router"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import Sidebar from '@/components/Sidebar'
-import { getCampaigns, Campaign } from '@/utils/campaignStore'
-import EmailTrackingStats from '@/components/EmailTrackingStats'
+import Sidebar from "@/components/Sidebar"
+import { getCampaigns, Campaign } from "@/utils/campaignStore"
+import EmailTrackingStats from "@/components/EmailTrackingStats"
 
 export default function CampaignDetails() {
   const router = useRouter()
@@ -18,19 +18,19 @@ export default function CampaignDetails() {
   useEffect(() => {
     if (id) {
       const campaigns = getCampaigns()
-      const foundCampaign = campaigns.find(c => c.id === id)
+      const foundCampaign = campaigns.find((c) => c.id === id)
       if (foundCampaign) {
         setCampaign(foundCampaign)
       } else {
         // Handle campaign not found
-        router.push('/campaign-dashboard')
+        router.push("/campaign-dashboard")
       }
     }
   }, [id, router])
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
-    document.documentElement.classList.toggle('dark')
+    document.documentElement.classList.toggle("dark")
   }
 
   if (!campaign) {
@@ -38,32 +38,42 @@ export default function CampaignDetails() {
   }
 
   return (
-    <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
+    <div className={`flex flex-col h-screen ${darkMode ? "dark" : ""}`}>
       {/* ... (add header similar to campaign-dashboard.tsx) */}
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
-          darkMode={darkMode} 
+        <Sidebar
+          darkMode={darkMode}
           toggleDarkMode={toggleDarkMode}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
           className="hidden lg:block"
         />
-        
+
         <main className="flex-1 p-4 lg:p-8 overflow-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
           <div className="max-w-7xl mx-auto">
             <h1 className="text-3xl font-bold mb-6">{campaign.name}</h1>
-            
+
             <Card className="mb-8">
               <CardHeader>
                 <CardTitle>Campaign Details</CardTitle>
               </CardHeader>
               <CardContent>
-                <p><strong>Type:</strong> {campaign.type}</p>
-                <p><strong>Status:</strong> {campaign.status}</p>
-                <p><strong>Start Date:</strong> {new Date(campaign.startDate).toLocaleDateString()}</p>
-                <p><strong>End Date:</strong> {new Date(campaign.endDate).toLocaleDateString()}</p>
-                <p><strong>Recipients:</strong> {campaign.recipients.length}</p>
+                <p>
+                  <strong>Type:</strong> {campaign.type}
+                </p>
+                <p>
+                  <strong>Status:</strong> {campaign.status}
+                </p>
+                <p>
+                  <strong>Start Date:</strong> {new Date(campaign.startDate).toLocaleDateString()}
+                </p>
+                <p>
+                  <strong>End Date:</strong> {new Date(campaign.endDate).toLocaleDateString()}
+                </p>
+                <p>
+                  <strong>Recipients:</strong> {campaign.recipients.length}
+                </p>
               </CardContent>
             </Card>
 
@@ -102,10 +112,7 @@ export default function CampaignDetails() {
               </CardContent>
             </Card>
 
-            <Button 
-              onClick={() => router.push('/campaign-dashboard')} 
-              className="mt-8"
-            >
+            <Button onClick={() => router.push("/campaign-dashboard")} className="mt-8">
               Back to Dashboard
             </Button>
           </div>
