@@ -34,49 +34,7 @@ const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
 import 'react-quill/dist/quill.snow.css'
 import { getTemplates } from '@/utils/db';  // Add this import
 
-const CampaignStats: React.FC<{ campaignId: string }> = ({ campaignId }) => {
-  const [stats, setStats] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ trackingIds: [campaignId] }),
-        });
-        const data = await response.json();
-        setStats(data);
-      } catch (error) {
-        console.error('Error fetching email stats:', error);
-      }
-    };
-
-    fetchStats();
-  }, [campaignId]);
-
-  if (!stats) return <div>Loading stats...</div>;
-
-  return (
-    <div>
-      <h2>Campaign Stats</h2>
-      <p>Total Sent: {stats.totalSent}</p>
-      <p>Total Opened: {stats.totalOpened}</p>
-      <p>Unique Opens: {stats.uniqueOpens}</p>
-      <p>Total Clicks: {stats.totalClicks}</p>
-      <h3>Device Information</h3>
-      {stats.detailedStats[0].devices.map((device: any, index: number) => (
-        <div key={index}>
-          <p>Device: {device.device}</p>
-          <p>OS: {device.os}</p>
-          <p>Browser: {device.browser}</p>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 export default function CreateCampaign() {
   const router = useRouter()
@@ -143,7 +101,7 @@ export default function CreateCampaign() {
       if (storedTokens) {
         const tokens = JSON.parse(storedTokens);
         try {
-          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
+          const response = await fetch('https://superemailapp-backend.onrender.com/auth/user-info', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -1,5 +1,4 @@
 import { Campaign, saveCampaign as saveToStore, getCampaigns as getFromStore, updateCampaignStats as updateStatsInStore } from './campaignStore';
-import { CampaignData } from '@/types/database';
 import { CampaignInput } from '@/types/campaign';
 
 export async function createCampaign(input: CampaignInput): Promise<Campaign> {

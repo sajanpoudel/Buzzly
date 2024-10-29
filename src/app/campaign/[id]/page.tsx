@@ -1,17 +1,17 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Sidebar from '@/components/Sidebar'
-import { getCampaigns, Campaign, updateCampaignStats } from '@/utils/campaignStore'
 import EmailTrackingStats from '@/components/EmailTrackingStats'
-import { useRouter } from 'next/navigation'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell, LabelList } from 'recharts'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Bar, BarChart, XAxis, YAxis, Legend, ResponsiveContainer, Cell, PieChart, Pie, Tooltip } from "recharts"
 import { CampaignData } from '@/types/database'
+import { mergeDeviceStats, getEmailStats } from '@/utils/db'
 
 interface DeviceInfo {
   device: string;
@@ -21,9 +21,24 @@ interface DeviceInfo {
 }
 
 const COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', 
-  '#F06292', '#AED581', '#7986CB', '#4DB6AC', '#FFD54F'
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-6))",
+  "hsl(var(--chart-7))",
+  "hsl(var(--chart-8))",
 ];
+
+const BROWSER_COLORS = {
+  'Chrome': 'url(#chromeGradient)',
+  'Firefox': 'url(#firefoxGradient)',
+  'Safari': 'url(#safariGradient)',
+  'Edge': 'url(#edgeGradient)',
+  'Opera': 'url(#operaGradient)',
+  'Unknown': 'url(#unknownGradient)'
+};
 
 export default function CampaignDetails() {
   const router = useRouter()
@@ -63,49 +78,55 @@ export default function CampaignDetails() {
 
   const fetchLatestStats = async (campaign: CampaignData) => {
     try {
-      const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ trackingIds: campaign.trackingIds })
-      });
-      if (response.ok) {
-        const stats = await response.json();
-        updateCampaignStats(campaign.id, stats);
-        setCampaign({ ...campaign, stats: { ...campaign.stats, ...stats } });
+      // Get stats directly from Firebase since server already updates it
+      const campaignRef = doc(db, 'campaigns', campaign.id);
+      const campaignSnap = await getDoc(campaignRef);
+      
+      if (!campaignSnap.exists()) {
+        throw new Error('Campaign not found');
       }
+
+      const updatedCampaign = campaignSnap.data() as CampaignData;
+      setCampaign(updatedCampaign);
+
     } catch (error) {
       console.error('Error fetching latest stats:', error);
     }
-  }
+  };
 
   const fetchDeviceStats = async (campaign: CampaignData) => {
     try {
-      const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ trackingIds: campaign.trackingIds }),
+      // Get stats directly from Firebase
+      const campaignRef = doc(db, 'campaigns', campaign.id);
+      const campaignSnap = await getDoc(campaignRef);
+      
+      if (!campaignSnap.exists()) {
+        setDeviceStats([]);
+        return;
+      }
+  
+      const campaignData = campaignSnap.data() as CampaignData;
+      const deviceInfo = campaignData.stats.deviceInfo || [];
+  
+      // Process device info
+      const deviceMap = new Map();
+      deviceInfo.forEach(device => {
+        const key = `${device.device}-${device.os}-${device.browser}`;
+        const existing = deviceMap.get(key);
+        
+        if (existing) {
+          existing.count++;
+        } else {
+          deviceMap.set(key, { ...device, count: 1 });
+        }
       });
-      const data = await response.json();
-      const deviceMap = new Map<string, DeviceInfo>();
-      data.detailedStats.forEach((stat: any) => {
-        (stat.devices || []).forEach((device: any) => {
-          const key = `${device.device}-${device.os}-${device.browser}`;
-          if (deviceMap.has(key)) {
-            deviceMap.get(key)!.count++;
-          } else {
-            deviceMap.set(key, { ...device, count: 1 });
-          }
-        });
-      });
-      setDeviceStats(Array.from(deviceMap.values()));
+  
+      const processedStats = Array.from(deviceMap.values());
+      setDeviceStats(processedStats);
+  
     } catch (error) {
       console.error('Error fetching device stats:', error);
+      setDeviceStats([]);
     }
   };
 
@@ -136,22 +157,6 @@ export default function CampaignDetails() {
 
   const chartData = prepareChartData(deviceStats);
   const browsers = Array.from(new Set(deviceStats.map(stat => stat.browser)));
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="custom-tooltip bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-          <p className="label font-semibold">{`${label}`}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={`item-${index}`} style={{ color: entry.color }}>
-              {`${entry.name}: ${entry.value}`}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   if (!campaign) {
     return <div>Loading...</div>
@@ -204,97 +209,167 @@ export default function CampaignDetails() {
               </CardContent>
             </Card>
 
-            <Card className="mb-8">
+            <Card>
               <CardHeader>
                 <CardTitle>Campaign Performance</CardTitle>
               </CardHeader>
               <CardContent>
-                <EmailTrackingStats trackingIds={campaign.trackingIds} />
+                <EmailTrackingStats campaignId={campaign.id} />
               </CardContent>
             </Card>
 
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Device Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {deviceStats.map((device, index) => (
-                    <div key={index} className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow">
-                      <p className="font-medium text-lg mb-2">{device.device}</p>
-                      <p className="text-sm mb-1">OS: {device.os}</p>
-                      <p className="text-sm mb-1">Browser: {device.browser}</p>
-                      <p className="text-sm font-semibold">Count: {device.count}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Device Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {deviceStats.map((device, index) => (
+                      <div key={index} className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow">
+                        <p className="font-medium text-lg mb-2">{device.device}</p>
+                        <p className="text-sm mb-1">OS: {device.os}</p>
+                        <p className="text-sm mb-1">Browser: {device.browser}</p>
+                        <p className="text-sm font-semibold">Count: {device.count}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Device and Browser Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[500px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={chartData}
-                      margin={{
-                        top: 20,
-                        right: 30,
-                        left: 20,
-                        bottom: 5,
-                      }}
-                    >
-                      <XAxis 
-                        dataKey="device" 
-                        tick={{ fill: darkMode ? '#E5E7EB' : '#4B5563' }}
-                        axisLine={{ stroke: darkMode ? '#4B5563' : '#9CA3AF' }}
-                      />
-                      <YAxis 
-                        tick={{ fill: darkMode ? '#E5E7EB' : '#4B5563' }}
-                        axisLine={{ stroke: darkMode ? '#4B5563' : '#9CA3AF' }}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend 
-                        wrapperStyle={{ 
-                          paddingTop: '20px',
-                          color: darkMode ? '#E5E7EB' : '#4B5563'
-                        }}
-                      />
-                      {browsers.map((browser, index) => (
-                        <Bar 
-                          key={browser} 
-                          dataKey={browser} 
-                          stackId="a" 
-                          fill={COLORS[index % COLORS.length]}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Device and Browser Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <defs>
+                          {/* Chrome Gradient */}
+                          <linearGradient id="chromeGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#4285F4" />
+                            <stop offset="100%" stopColor="#34A853" />
+                          </linearGradient>
+                          
+                          {/* Firefox Gradient */}
+                          <linearGradient id="firefoxGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#FF9500" />
+                            <stop offset="100%" stopColor="#FF0039" />
+                          </linearGradient>
+                          
+                          {/* Safari Gradient */}
+                          <linearGradient id="safariGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#007AFF" />
+                            <stop offset="100%" stopColor="#5856D6" />
+                          </linearGradient>
+                          
+                          {/* Edge Gradient */}
+                          <linearGradient id="edgeGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#0078D7" />
+                            <stop offset="100%" stopColor="#00BCF2" />
+                          </linearGradient>
+                          
+                          {/* Opera Gradient */}
+                          <linearGradient id="operaGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#FF1B2D" />
+                            <stop offset="100%" stopColor="#FF1B2D" />
+                          </linearGradient>
+                          
+                          {/* Unknown Browser Gradient */}
+                          <linearGradient id="unknownGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#9C27B0" />
+                            <stop offset="100%" stopColor="#673AB7" />
+                          </linearGradient>
+                        </defs>
+                        
+                        <Pie
+                          data={deviceStats}
+                          dataKey="count"
+                          nameKey="browser"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={120}
+                          paddingAngle={5}
+                          label={({
+                            cx,
+                            cy,
+                            midAngle,
+                            innerRadius,
+                            outerRadius,
+                            value,
+                            index
+                          }) => {
+                            const RADIAN = Math.PI / 180;
+                            const radius = 25 + innerRadius + (outerRadius - innerRadius);
+                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                fill="#888888"
+                                textAnchor={x > cx ? 'start' : 'end'}
+                                dominantBaseline="central"
+                                className="text-xs"
+                              >
+                                {`${deviceStats[index].browser} (${value})`}
+                              </text>
+                            );
+                          }}
                         >
-                          <LabelList 
-                            dataKey={browser} 
-                            position="inside" 
-                            fill="#FFFFFF" 
-                            fontSize={12}
-                            formatter={(value: number) => (value > 0 ? value : '')}
-                          />
-                          {chartData.map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={COLORS[index % COLORS.length]}
-                              style={{
-                                filter: `brightness(${1 + index * 0.1})`,
-                                stroke: darkMode ? '#1F2937' : '#FFFFFF',
-                                strokeWidth: 1,
-                              }}
+                          {deviceStats.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={BROWSER_COLORS[entry.browser as keyof typeof BROWSER_COLORS] || BROWSER_COLORS.Unknown}
+                              stroke="none"
+                              className="hover:opacity-80 transition-opacity duration-200"
                             />
                           ))}
-                        </Bar>
-                      ))}
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                                  <p className="font-semibold">{data.browser}</p>
+                                  <p className="text-sm text-gray-500">Device: {data.device}</p>
+                                  <p className="text-sm text-gray-500">OS: {data.os}</p>
+                                  <p className="text-sm font-medium mt-1">Count: {data.count}</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Legend
+                          verticalAlign="bottom"
+                          height={36}
+                          content={({ payload }) => (
+                            <div className="flex flex-wrap justify-center gap-4 mt-4">
+                              {payload?.map((entry, index) => (
+                                <div key={`legend-${index}`} className="flex items-center">
+                                  <div
+                                    className="w-3 h-3 rounded-full mr-2"
+                                    style={{ background: entry.color }}
+                                  />
+                                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                                    {entry.value}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             <div className="mt-8 flex justify-between">
               <Button 

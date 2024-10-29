@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { ArrowUpRight, Bell, Calendar, Clock, HelpCircle, LayoutDashboard, Mail, Moon, MoreVertical, Plus, Search, Menu, Sun, Loader } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -18,55 +17,36 @@ import EmailTrackingStats from '@/components/EmailTrackingStats';
 import { useAuth } from '@/contexts/AuthContext'
 import { getCampaigns as getCampaignsDb } from '@/utils/db'
 import { CampaignData, CampaignType, DeviceInfo } from '@/types/database'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 
 const CampaignCard: React.FC<{ campaign: CampaignData; onClick: () => void }> = ({ campaign, onClick }) => {
   const [stats, setStats] = useState(campaign.stats);
-  const [deviceStats, setDeviceStats] = useState<DeviceInfo[]>([]);
+
+  const fetchStats = async () => {
+    try {
+      // Get stats directly from Firebase
+      const campaignRef = doc(db, 'campaigns', campaign.id);
+      const campaignSnap = await getDoc(campaignRef);
+      
+      if (campaignSnap.exists()) {
+        const campaignData = campaignSnap.data() as CampaignData;
+        // Update local stats state
+        setStats(campaignData.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-          },
-          body: JSON.stringify({ trackingIds: campaign.trackingIds })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          // Update stats directly from the response instead of adding to previous stats
-          const newStats = {
-            sent: campaign.recipients.length,
-            opened: data.totalOpened || 0,
-            clicked: data.totalClicks || 0,
-            converted: data.uniqueOpens || 0,
-            deviceInfo: data.deviceInfo || []
-          };
-
-          setStats(newStats);
-
-          // Update stats in Firestore with the new values
-          await updateDoc(doc(db, 'campaigns', campaign.id), {
-            stats: newStats,
-            updatedAt: new Date().toISOString()
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      }
-    };
-
     // Fetch stats immediately and then every 30 seconds
     fetchStats();
     const interval = setInterval(fetchStats, 30000);
 
     return () => clearInterval(interval);
-  }, [campaign.id, campaign.trackingIds, campaign.recipients.length]);
+  }, [campaign.id]);
 
   return (
     <Card 
@@ -152,15 +132,22 @@ export default function CampaignDashboard() {
   const { user } = useAuth()
 
   useEffect(() => {
+    if (!user) return;
+
     const loadCampaigns = async () => {
-      if (!user) return;
-      
       try {
         setIsLoading(true);
-        console.log('Fetching campaigns for user:', user.id);
-        const userCampaigns = await getCampaignsDb(user.id);
-        console.log('Fetched campaigns:', userCampaigns);
-        setCampaigns(userCampaigns);
+        
+        // Get campaigns directly from Firebase
+        const campaignsRef = collection(db, 'campaigns');
+        const q = query(
+          campaignsRef,
+          where('userId', '==', user.id)
+        );
+        const querySnapshot = await getDocs(q);
+        const campaignsData = querySnapshot.docs.map(doc => doc.data() as CampaignData);
+        
+        setCampaigns(campaignsData);
       } catch (error) {
         console.error('Error loading campaigns:', error);
       } finally {
@@ -173,7 +160,7 @@ export default function CampaignDashboard() {
 
   const updateCampaignStatsFromServer = async (campaign: Campaign) => {
     try {
-      const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
+      const response = await fetch('https://superemailapp-backend.onrender.com/auth/email-stats', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

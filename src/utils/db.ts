@@ -14,7 +14,7 @@ import {
   endAt,
   deleteDoc
 } from 'firebase/firestore';
-import { UserData, CampaignData, TemplateData, EmailStats, CampaignType } from '@/types/database';
+import { UserData, CampaignData, TemplateData, EmailStats, CampaignType, DeviceInfo } from '@/types/database';
 
 // User functions
 export const createOrUpdateUser = async (userData: UserData) => {
@@ -219,46 +219,115 @@ export const getTemplates = async (userId: string) => {
 
 // Email stats functions
 export const updateEmailStats = async (statsData: EmailStats) => {
-  const statsRef = doc(db, 'emailStats', statsData.trackingId);
-  await setDoc(statsRef, {
-    ...statsData,
-    updatedAt: new Date().toISOString()
-  }, { merge: true });
-
-  // Update campaign stats
-  const campaignRef = doc(db, 'campaigns', statsData.campaignId);
-  const campaignSnap = await getDoc(campaignRef);
-  if (campaignSnap.exists()) {
-    const campaign = campaignSnap.data() as CampaignData;
-    const stats = campaign.stats;
+  try {
+    console.log('Updating email stats:', statsData);
+    const statsRef = doc(db, 'emailStats', statsData.trackingId);
     
-    if (statsData.opened && !stats.opened) {
-      stats.opened++;
-    }
-    if (statsData.clicked && !stats.clicked) {
-      stats.clicked++;
-    }
-    if (statsData.converted && !stats.converted) {
-      stats.converted++;
+    // First, get existing stats
+    const existingStats = await getDoc(statsRef);
+    const existingDeviceInfo = existingStats.exists() ? 
+      existingStats.data().deviceInfo || [] : [];
+
+    // Merge device info
+    const mergedDeviceInfo = [...existingDeviceInfo];
+    if (statsData.deviceInfo) {
+      statsData.deviceInfo.forEach(newDevice => {
+        const deviceExists = mergedDeviceInfo.some(existingDevice => 
+          existingDevice.device === newDevice.device &&
+          existingDevice.os === newDevice.os &&
+          existingDevice.browser === newDevice.browser
+        );
+        if (!deviceExists) {
+          mergedDeviceInfo.push(newDevice);
+        }
+      });
     }
 
-    await updateDoc(campaignRef, { stats });
+    // Update email stats with merged device info
+    await setDoc(statsRef, {
+      ...statsData,
+      deviceInfo: mergedDeviceInfo,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    // Update campaign stats
+    if (statsData.campaignId) {
+      const campaignRef = doc(db, 'campaigns', statsData.campaignId);
+      const campaignSnap = await getDoc(campaignRef);
+      
+      if (campaignSnap.exists()) {
+        const campaign = campaignSnap.data() as CampaignData;
+        const currentStats = campaign.stats || {
+          sent: 0,
+          opened: 0,
+          clicked: 0,
+          converted: 0,
+          deviceInfo: []
+        };
+
+        // Update basic stats
+        if (statsData.opened && !currentStats.opened) {
+          currentStats.opened++;
+        }
+        if (statsData.clicked && !currentStats.clicked) {
+          currentStats.clicked++;
+        }
+        if (statsData.converted && !currentStats.converted) {
+          currentStats.converted++;
+        }
+
+        // Update device info in campaign stats
+        const campaignDeviceInfo = currentStats.deviceInfo || [];
+        if (statsData.deviceInfo) {
+          statsData.deviceInfo.forEach(newDevice => {
+            const deviceExists = campaignDeviceInfo.some(existingDevice => 
+              existingDevice.device === newDevice.device &&
+              existingDevice.os === newDevice.os &&
+              existingDevice.browser === newDevice.browser
+            );
+            if (!deviceExists) {
+              campaignDeviceInfo.push(newDevice);
+            }
+          });
+        }
+
+        // Update campaign with new stats
+        await updateDoc(campaignRef, {
+          stats: {
+            ...currentStats,
+            deviceInfo: campaignDeviceInfo
+          },
+          updatedAt: new Date().toISOString()
+        });
+
+        console.log('Updated campaign stats with device info:', campaignDeviceInfo);
+      }
+    }
+
+    return mergedDeviceInfo;
+  } catch (error) {
+    console.error('Error updating email stats:', error);
+    throw error;
   }
 };
 
 export const getEmailStats = async (campaignId: string) => {
-  const q = query(
-    collection(db, 'emailStats'),
-    where('campaignId', '==', campaignId),
-    where('opened', '==', true),
-    orderBy('openedAt', 'desc')
-  );
-  
   try {
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data() as EmailStats);
+    // Get stats from database
+    const campaignRef = doc(db, 'campaigns', campaignId);
+    const campaignSnap = await getDoc(campaignRef);
+    
+    if (!campaignSnap.exists()) {
+      throw new Error('Campaign not found');
+    }
+
+    const campaign = campaignSnap.data() as CampaignData;
+    
+    // Return stats directly from database
+    return campaign.stats;
+
   } catch (error) {
-    console.error('Error fetching email stats:', error);
+    console.error('Error getting email stats:', error);
     throw error;
   }
 };
@@ -276,7 +345,7 @@ async function sendCampaignEmails(campaign: CampaignData) {
     const decodedBody = decodeURIComponent(campaign.body);
     
     // Send to backend for email processing
-    const response = await fetch('https://emailapp-backend.onrender.com/auth/send-email', {
+    const response = await fetch('https://superemailapp-backend.onrender.com/auth/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -360,3 +429,50 @@ export const deleteTemplate = async (templateId: string) => {
   const templateRef = doc(db, 'templates', templateId);
   await deleteDoc(templateRef);  // Add deleteDoc to the imports from firebase/firestore
 };
+
+// Add new function to merge device stats
+export const mergeDeviceStats = async (campaignId: string, newDeviceInfo: DeviceInfo[]) => {
+  try {
+    const campaignRef = doc(db, 'campaigns', campaignId);
+    const campaignSnap = await getDoc(campaignRef);
+    
+    if (!campaignSnap.exists()) {
+      console.error('Campaign not found:', campaignId);
+      return;
+    }
+
+    const campaign = campaignSnap.data() as CampaignData;
+    const existingDeviceInfo = campaign.stats.deviceInfo || [];
+
+    // Create a map of existing device info for easy lookup
+    const deviceMap = new Map<string, DeviceInfo>();
+    existingDeviceInfo.forEach(device => {
+      const key = `${device.device}-${device.os}-${device.browser}`;
+      deviceMap.set(key, device);
+    });
+
+    // Merge new device info
+    newDeviceInfo.forEach(device => {
+      const key = `${device.device}-${device.os}-${device.browser}`;
+      if (!deviceMap.has(key)) {
+        deviceMap.set(key, device);
+      }
+    });
+
+    // Convert map back to array
+    const mergedDeviceInfo = Array.from(deviceMap.values());
+
+    // Update campaign with merged device info
+    await updateDoc(campaignRef, {
+      'stats.deviceInfo': mergedDeviceInfo,
+      updatedAt: new Date().toISOString()
+    });
+
+    console.log(`Updated device stats for campaign ${campaignId}:`, mergedDeviceInfo);
+    return mergedDeviceInfo;
+  } catch (error) {
+    console.error('Error merging device stats:', error);
+    throw error;
+  }
+};
+

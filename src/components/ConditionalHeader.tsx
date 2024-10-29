@@ -22,7 +22,7 @@ export default function ConditionalHeader() {
       if (storedTokens) {
         const tokens = JSON.parse(storedTokens);
         try {
-          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
+          const response = await fetch('https://superemailapp-backend.onrender.com/auth/user-info', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

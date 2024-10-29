@@ -1,0 +1,57 @@
+This is my index. // Index 1: For filtering campaigns by user and date
+Collection ID: campaigns
+Fields:
+- userId (Ascending)
+- createdAt (Ascending)
+Query scope: Collection
+
+// Index 2: For filtering campaigns by user and type
+Collection ID: campaigns
+Fields:
+- userId (Ascending)
+- type (Ascending)
+- createdAt (Ascending)
+Query scope: Collection
+
+// Index 3: For sorting campaigns by open rate
+Collection ID: campaigns
+Fields:
+- userId (Ascending)
+- stats.openRate (Descending)
+Query scope: Collection
+
+// Index 4: For sorting campaigns by click rate
+Collection ID: campaigns
+Fields:
+- userId (Ascending)
+- stats.clickRate (Descending)
+Query scope: Collection
+
+// Index 5: For sorting campaigns by conversion rate
+Collection ID: campaigns
+Fields:
+- userId (Ascending)
+- stats.conversionRate (Descending)
+Query scope: Collection
+
+// Index 6: For filtering campaigns by user and status
+Collection ID: campaigns
+Fields:
+- userId (Ascending)
+- status (Ascending)
+Query scope: Collection
+
+// Index 7: For email stats tracking
+Collection ID: emailStats
+Fields:
+- campaignId (Ascending)
+- opened (Ascending)
+- openedAt (Descending)
+Query scope: Collection. 
+
+// Index 8: For tracking email opens by trackingId (NEW)
+Collection ID: campaigns
+Fields:
+- trackingIds (Array contains)
+- updatedAt (Descending)
+Query scope: Collection

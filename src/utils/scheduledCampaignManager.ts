@@ -22,7 +22,7 @@ export async function checkAndSendScheduledCampaigns() {
   // Add new scheduled campaigns to the queue
   campaigns.forEach(campaign => {
     console.log(`Checking campaign: ${campaign.id}, Status: ${campaign.status}, Scheduled DateTime: ${campaign.scheduledDateTime}`);
-    if (campaign.status === 'Scheduled' && campaign.scheduledDateTime && !campaignQueue.some(qc => qc.campaign.id === campaign.id)) {
+    if (campaign.status === 'scheduled' && campaign.scheduledDateTime && !campaignQueue.some(qc => qc.campaign.id === campaign.id)) {
       console.log(`Adding campaign ${campaign.id} to queue`);
       campaignQueue.push({ campaign, attempts: 0, lastAttempt: new Date(0) });
     }
@@ -48,14 +48,14 @@ export async function checkAndSendScheduledCampaigns() {
           return { ...queuedCampaign, attempts: attempts + 1, lastAttempt: new Date() };
         }
       } else if (attempts >= MAX_ATTEMPTS) {
-        console.log(`Campaign ${campaign.id} failed after ${MAX_ATTEMPTS} attempts. Marking as 'Failed'.`);
-        campaign.status = 'Failed';
+        console.log(`Campaign ${campaign.id} failed after ${MAX_ATTEMPTS} attempts. Marking as draft.`);
+        campaign.status = 'draft';
         saveCampaign(campaign);
         return null; // Remove from queue
       }
     } else if (now.getTime() - scheduledTime.getTime() > EXPIRY_TIME) {
-      console.log(`Campaign ${campaign.id} has expired. Marking as 'Expired'.`);
-      campaign.status = 'Expired';
+      console.log(`Campaign ${campaign.id} has expired. Marking as draft.`);
+      campaign.status = 'draft';
       saveCampaign(campaign);
       return null; // Remove from queue
     }
@@ -70,7 +70,7 @@ async function sendScheduledCampaign(campaign: Campaign): Promise<boolean> {
   console.log(`Attempting to send scheduled campaign: ${campaign.id}`);
   try {
     // Check if the campaign has already been sent
-    if (campaign.status === 'Sent') {
+    if (campaign.status === 'completed') {
       console.log(`Campaign ${campaign.id} has already been sent. Skipping.`);
       return true;
     }
@@ -81,8 +81,6 @@ async function sendScheduledCampaign(campaign: Campaign): Promise<boolean> {
     // Check if tokens are expired
     if (tokens.expiry_date && new Date().getTime() > tokens.expiry_date) {
       console.log('Tokens have expired. Refresh needed.');
-      // Implement token refresh logic here
-      // For now, we'll just return false to retry later
       return false;
     }
 
@@ -95,7 +93,7 @@ async function sendScheduledCampaign(campaign: Campaign): Promise<boolean> {
     };
     console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
-    const response = await fetch('https://emailapp-backend.onrender.com/auth/send-email', {
+    const response = await fetch('https://superemailapp-backend.onrender.com/auth/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -114,18 +112,15 @@ async function sendScheduledCampaign(campaign: Campaign): Promise<boolean> {
     console.log(`Campaign ${campaign.id} sent successfully. Result:`, result);
 
     // Update campaign status and stats
-    campaign.status = 'Sent';
+    campaign.status = 'completed';
     campaign.stats.sent = result.info.length;
     campaign.trackingIds = result.info.map((item: any) => item.trackingId);
     saveCampaign(campaign);
-    console.log(`Updated campaign ${campaign.id} status to Sent`);
+    console.log(`Updated campaign ${campaign.id} status to completed`);
 
     return true;
   } catch (error) {
     console.error(`Error sending scheduled campaign ${campaign.id}:`, error);
-    if (error instanceof Error) {
-      console.error('Error details:', error.message);
-    }
     return false;
   }
 }

@@ -89,7 +89,7 @@ export default function Login() {
       setError(null)
       
       // First, redirect to backend for Gmail authentication
-      window.location.href = 'https://emailapp-backend.onrender.com/auth/google'
+      window.location.href = 'https://superemailapp-backend.onrender.com/auth/google'
       
       // The backend will handle the redirect to auth-callback
       // with the tokens after successful authentication

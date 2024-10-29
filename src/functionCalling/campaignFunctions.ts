@@ -70,8 +70,8 @@ export async function sendCampaign(id: string) {
   const campaign = campaigns.find(c => c.id === id);
   if (campaign) {
     // Implement sending logic here
-    // For now, let's just update the status
-    campaign.status = 'Sent';
+    // Update status to 'completed' instead of 'Sent'
+    campaign.status = 'completed';
     updateCampaign(id, campaign);
     return `Campaign ${id} sent successfully.`;
   }

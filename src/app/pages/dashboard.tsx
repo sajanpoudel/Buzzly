@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { ArrowUpRight, Bell, Calendar, ChevronDown, LayoutDashboard, Mail, Menu, MessageSquare, Moon, MoreVertical, Search, Settings, Sun, Plus } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,14 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { db } from '@/lib/firebase'
 import { getInitialsFromEmail } from '@/utils/stringUtils'
 import { subDays, subMonths, subYears, startOfDay } from 'date-fns';
+
+// Add this type definition
+type DeviceType = 'Desktop' | 'Mobile' | 'Tablet';
+type DeviceStats = Record<DeviceType, {
+  total: number;
+  opened: number;
+  clicked: number;
+}>;
 
 const StatCard: React.FC<{
   title: string;
@@ -196,7 +204,7 @@ export default function Dashboard() {
       try {
         setIsLoading(true);
         
-        // Get campaigns with filters
+        // Get campaigns
         let campaigns = await getCampaigns(user.id, {
           type: filters.campaignType === 'all' ? undefined : filters.campaignType,
           dateRange: filters.dateRange.start && filters.dateRange.end ? {
@@ -206,6 +214,64 @@ export default function Dashboard() {
           audienceSegment: filters.audienceSegment === 'all' ? undefined : filters.audienceSegment,
           sortBy: filters.sortBy === 'date' ? undefined : filters.sortBy
         });
+
+        // Process device performance data - Fixed version
+        const deviceStatsMap = new Map<string, {
+          device: string;
+          os: string;
+          browser: string;
+          total: number;
+          opened: number;
+        }>();
+
+        // Aggregate device info across all campaigns
+        campaigns.forEach(campaign => {
+          // Make sure deviceInfo exists in campaign stats
+          const deviceInfo = campaign.stats?.deviceInfo || [];
+          
+          deviceInfo.forEach(info => {
+            const key = `${info.device || 'Unknown'}-${info.os || 'Unknown'}-${info.browser || 'Unknown'}`;
+            
+            const existingStats = deviceStatsMap.get(key) || {
+              device: info.device || 'Unknown',
+              os: info.os || 'Unknown',
+              browser: info.browser || 'Unknown',
+              total: 0,
+              opened: 0
+            };
+
+            // Update stats
+            existingStats.total++;
+            if (campaign.stats.opened > 0) {
+              existingStats.opened++;
+            }
+
+            deviceStatsMap.set(key, existingStats);
+          });
+        });
+
+        // Convert to array and calculate percentages
+        const processedDeviceData = Array.from(deviceStatsMap.values())
+          .map(stats => ({
+            device: stats.device,
+            os: stats.os,
+            browser: stats.browser,
+            opened: stats.total > 0 ? (stats.opened / stats.total) * 100 : 0,
+            count: stats.total
+          }))
+          .sort((a, b) => b.count - a.count);
+
+        // Add default data if no device info is available
+        if (processedDeviceData.length === 0) {
+          processedDeviceData.push(
+            { device: 'Desktop', os: 'Unknown', browser: 'Unknown', opened: 0, count: 0 },
+            { device: 'Mobile', os: 'Unknown', browser: 'Unknown', opened: 0, count: 0 },
+            { device: 'Tablet', os: 'Unknown', browser: 'Unknown', opened: 0, count: 0 }
+          );
+        }
+
+        console.log('Processed Device Data:', processedDeviceData);
+        setDevicePerformance(processedDeviceData);
 
         // Apply sorting if needed
         if (filters.sortBy !== 'date') {
@@ -277,56 +343,6 @@ export default function Dashboard() {
         }));
 
         setEmailData(processedEmailData);
-
-        // Process device performance data - Updated version
-        const deviceStats = campaigns.reduce((acc: any, campaign) => {
-          // Get email stats for this campaign
-          campaign.trackingIds.forEach(trackingId => {
-            // Default device data if no device info
-            const defaultDevices = [{
-              device: 'Desktop',
-              opened: campaign.stats.opened > 0 ? 1 : 0,
-              clicks: campaign.stats.clicked > 0 ? 1 : 0
-            }];
-
-            // Use deviceInfo if available, otherwise use default
-            const devices = campaign.stats.deviceInfo || defaultDevices;
-
-            devices.forEach(device => {
-              const deviceName = device.device || 'Unknown';
-              if (!acc[deviceName]) {
-                acc[deviceName] = {
-                  device: deviceName,
-                  opened: 0,
-                  clicks: 0,
-                  total: 0
-                };
-              }
-              acc[deviceName].total++;
-              if (campaign.stats.opened > 0) acc[deviceName].opened++;
-              if (campaign.stats.clicked > 0) acc[deviceName].clicks++;
-            });
-          });
-          return acc;
-        }, {});
-
-        // Convert to array and calculate percentages
-        const processedDeviceData = Object.values(deviceStats).map((data: any) => ({
-          device: data.device,
-          opened: data.total > 0 ? (data.opened / data.total) * 100 : 0,
-          clicks: data.total > 0 ? (data.clicks / data.total) * 100 : 0
-        }));
-
-        // Add some default data if no device data is available
-        if (processedDeviceData.length === 0) {
-          processedDeviceData.push(
-            { device: 'Desktop', opened: 0, clicks: 0 },
-            { device: 'Mobile', opened: 0, clicks: 0 },
-            { device: 'Tablet', opened: 0, clicks: 0 }
-          );
-        }
-
-        setDevicePerformance(processedDeviceData);
 
       } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -495,22 +511,43 @@ export default function Dashboard() {
               <Card>
                 <CardContent className="p-6">
                   <h2 className="text-lg font-semibold mb-4 dark:text-white">Performance By Device Type</h2>
+                 
                   <div className="h-[300px] lg:h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={devicePerformance} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" />
-                        <YAxis dataKey="device" type="category" width={100} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar 
-                          dataKey="opened" 
-                          fill="url(#colorClickThrough)" 
-                          name="Opened"
+                        <XAxis 
+                          type="number" 
+                          domain={[0, 100]}
+                          tickFormatter={(value) => `${value}%`}
+                        />
+                        <YAxis 
+                          dataKey="device" 
+                          type="category" 
+                          width={100} 
+                        />
+                        <Tooltip 
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                                  <p className="font-semibold">{data.device}</p>
+                                  <p className="text-sm text-gray-500">OS: {data.os}</p>
+                                  <p className="text-sm text-gray-500">Browser: {data.browser}</p>
+                                  <p className="text-sm text-gray-500">Count: {data.count}</p>
+                                  <p className="text-sm font-medium mt-1">Open Rate: {data.opened.toFixed(1)}%</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
                         />
                         <Bar 
-                          dataKey="clicks" 
+                          dataKey="opened" 
+                          name="Open Rate"
                           fill="url(#colorOpenRate)" 
-                          name="Clicks"
+                          radius={[0, 4, 4, 0]}
                         />
                       </BarChart>
                     </ResponsiveContainer>

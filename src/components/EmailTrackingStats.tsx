@@ -1,62 +1,53 @@
 import React, { useEffect, useState } from 'react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getEmailStats } from '@/utils/db';
+import { CampaignData, CampaignStats } from '@/types/database';
+import { doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getDoc } from 'firebase/firestore';
 
 interface EmailTrackingStatsProps {
-  trackingIds: string[];
+  campaignId: string;
 }
 
-interface EmailStats {
-  totalSent: number;
-  totalOpened: number;
-  totalClicks: number;
-  uniqueOpens: number;
-}
-
-const EmailTrackingStats: React.FC<EmailTrackingStatsProps> = ({ trackingIds }) => {
-  const [stats, setStats] = useState<EmailStats>({ totalSent: 0, totalOpened: 0, totalClicks: 0, uniqueOpens: 0 });
-  const [error, setError] = useState<string | null>(null);
+const EmailTrackingStats: React.FC<EmailTrackingStatsProps> = ({ campaignId }) => {
+  const [stats, setStats] = useState<CampaignStats>({
+    sent: 0,
+    opened: 0,
+    clicked: 0,
+    converted: 0,
+    deviceInfo: []
+  });
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('https://emailapp-backend.onrender.com/auth/email-stats', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ trackingIds })
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const campaignRef = doc(db, 'campaigns', campaignId);
+      const campaignSnap = await getDoc(campaignRef);
+      
+      if (campaignSnap.exists()) {
+        const campaignData = campaignSnap.data() as CampaignData;
+        setStats(campaignData.stats);
       }
-      const data = await response.json();
-      setStats(data);
-      setError(null);
     } catch (error) {
-      console.error('Error fetching email stats:', error);
-      setError('Failed to fetch email stats. Please try again later.');
+      console.error('Error fetching stats:', error);
     }
   };
 
   useEffect(() => {
-    if (trackingIds.length > 0) {
+    if (campaignId) {
       fetchStats();
       const interval = setInterval(fetchStats, 60000); // Update every minute
       return () => clearInterval(interval);
     }
-  }, [trackingIds]);
+  }, [campaignId]);
 
   const chartData = [
-    { name: 'Sent', value: stats.totalSent },
-    { name: 'Opened', value: stats.totalOpened },
-    { name: 'Clicked', value: stats.totalClicks },
+    { name: 'Sent', value: stats.sent },
+    { name: 'Opened', value: stats.opened },
+    { name: 'Clicked', value: stats.clicked },
   ];
 
-  if (error) {
-    return <div className="text-red-500">{error}</div>;
-  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -68,22 +59,22 @@ const EmailTrackingStats: React.FC<EmailTrackingStatsProps> = ({ trackingIds }) 
           <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div className="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6">
               <dt className="text-sm font-medium text-gray-500 truncate">Total Sent</dt>
-              <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.totalSent}</dd>
+              <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.sent}</dd>
             </div>
             <div className="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6">
-              <dt className="text-sm font-medium text-gray-500 truncate">Unique Opens</dt>
-              <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.uniqueOpens}</dd>
+              <dt className="text-sm font-medium text-gray-500 truncate">Total Opens</dt>
+              <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.opened}</dd>
             </div>
             <div className="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6">
               <dt className="text-sm font-medium text-gray-500 truncate">Open Rate</dt>
               <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                {stats.totalSent > 0 ? ((stats.uniqueOpens / stats.totalSent) * 100).toFixed(2) : 0}%
+                {stats.sent > 0 ? ((stats.opened / stats.sent) * 100).toFixed(2) : 0}%
               </dd>
             </div>
             <div className="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6">
               <dt className="text-sm font-medium text-gray-500 truncate">Click-through Rate</dt>
               <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                {stats.totalSent > 0 ? ((stats.totalClicks / stats.totalSent) * 100).toFixed(2) : 0}%
+                {stats.sent > 0 ? ((stats.clicked / stats.sent) * 100).toFixed(2) : 0}%
               </dd>
             </div>
           </dl>
