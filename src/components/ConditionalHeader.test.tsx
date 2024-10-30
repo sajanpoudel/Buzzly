@@ -33,4 +33,9 @@ describe('ConditionalHeader', () => {
     render(<ConditionalHeader />)
     expect(screen.getByRole('heading', { name: 'Your App Name' })).toBeInTheDocument()
   })
+
+  it('falls back to the letter U without a signed in user', () => {
+    render(<ConditionalHeader />)
+    expect(screen.getByText('U')).toBeInTheDocument()
+  })
 });
