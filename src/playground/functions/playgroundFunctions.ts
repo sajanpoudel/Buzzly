@@ -13,11 +13,29 @@ interface PlaygroundResponse {
 
 interface AnalysisResponse {
   analysis: string;
-  stats?: {
+  stats: {
     openRate: number;
     clickRate: number;
     conversionRate: number;
+    bounceRate: number;
+    clickToOpenRate: number;
     deviceBreakdown: { [key: string]: number };
+    performanceMetrics: Array<{
+      name: string;
+      value: number;
+    }>;
+    deviceStats: Array<{
+      device: string;
+      percentage: number;
+      browser: string;
+      os: string;
+      count: number;
+    }>;
+    totalRecipients: number;
+    totalOpened: number;
+    totalClicked: number;
+    totalConverted: number;
+    engagementRate: number;
   };
   trends?: {
     date: string;
@@ -25,6 +43,9 @@ interface AnalysisResponse {
     clickRate: number;
   }[];
   suggestions?: string[];
+  improvements?: string[];
+  actions?: string[];
+  needsVisualization?: boolean;
 }
 
 export async function handlePlaygroundQuery(message: string, userId: string): Promise<PlaygroundResponse> {
@@ -40,79 +61,154 @@ export async function handlePlaygroundQuery(message: string, userId: string): Pr
         message.toLowerCase().includes('all campaigns') ||
         message.toLowerCase().includes('campaigns doing')) {
       const response = await getOverallCampaignPerformance(userId);
+      
+      // Handle the response based on its type
+      if (typeof response === 'string') {
+        return { 
+          text: response,
+          component: undefined
+        };
+      }
+
+      // If it's an OverallPerformance object, create a formatted text response
+      const formattedText = `
+Overall Campaign Performance
+
+• Total Sent: ${response.stats.sent}
+• Total Opened: ${response.stats.opened}
+• Total Clicked: ${response.stats.clicked}
+• Total Conversions: ${response.stats.converted}
+
+Key Insights:
+${response.suggestions.map(suggestion => `• ${suggestion}`).join('\n')}
+      `.trim();
+
+      // Create visualization component for overall performance
+      const component = React.createElement('div', { 
+        className: 'space-y-4 w-full',
+        children: [
+          React.createElement(PerformanceGraph, { 
+            data: response.trends,
+            key: 'overall-performance'
+          }),
+          React.createElement(CampaignSuggestions, {
+            suggestions: response.suggestions,
+            type: 'improvement',
+            title: 'Overall Recommendations',
+            key: 'overall-suggestions'
+          })
+        ]
+      });
+
       return { 
-        text: response,
-        component: undefined  // You can add overall performance visualization here if needed
+        text: formattedText,
+        component
       };
     }
 
     // Check for specific campaign analysis
     if (message.toLowerCase().includes('how') && 
         (message.toLowerCase().includes('campaign') || message.toLowerCase().includes('performance'))) {
-      const campaignNameMatch = message.match(/['"]([^'"]+)['"]/);
-      const campaignName = campaignNameMatch ? campaignNameMatch[1] : undefined;
-      
-      console.log(`Extracted campaign name: "${campaignName}", userId: "${userId}"`);
-      
-      const response = await handleCampaignQuery(userId, campaignName) as AnalysisResponse | string;
-      
-      if (typeof response === 'string') {
-        return { text: response };
-      }
+      try {
+        const campaignNameMatch = message.match(/['"]([^'"]+)['"]/);
+        const campaignName = campaignNameMatch?.[1];
+        
+        // Early return if no campaign name is found
+        if (!campaignName) {
+          return { 
+            text: "Please specify a campaign name in quotes. For example: How is campaign \"Summer Sale\" performing?" 
+          };
+        }
+        
+        console.log(`Analyzing campaign: "${campaignName}" for user: "${userId}"`);
+        
+        // Now TypeScript knows campaignName is definitely a string
+        const response = await handleCampaignQuery(userId, campaignName);
+        
+        // Check if response is a string (error message)
+        if (typeof response === 'string') {
+          return { text: response };
+        }
 
-      // Create visualization components array
-      const components: ReactElement[] = [];
+        // Now TypeScript knows response is AnalysisResponse
+        console.log('Response stats:', response.stats);
 
-      // Add PerformanceGraph first with proper data
-      if (response.stats) {
-        const graphData = response.trends || [
-          {
-            date: 'Start',
-            openRate: response.stats.openRate,
-            clickRate: response.stats.clickRate
-          },
-          {
-            date: 'Current',
-            openRate: response.stats.openRate,
-            clickRate: response.stats.clickRate
-          }
-        ];
+        // Format the response text and suggestions
+        const formattedAnalysis = response.analysis.replace(/[*#]/g, '');
+        const formattedImprovements = response.improvements?.map(item => item.replace(/[*#]/g, '')) || [];
+        const formattedActions = response.actions?.map(item => item.replace(/[*#]/g, '')) || [];
 
-        components.push(
-          React.createElement(PerformanceGraph, { 
-            data: graphData,
-            key: 'performance'
-          })
-        );
+        // Create a container for both charts
+        const chartsContainer = React.createElement('div', {
+          className: 'grid grid-cols-2 gap-4 w-full mb-4',
+          children: [
+            // Performance Graph
+            React.createElement(PerformanceGraph, {
+              data: response.trends?.data.map(item => ({
+                date: item.date,
+                openRate: Number(item.openRate.toFixed(1)),
+                clickRate: Number(item.clickRate.toFixed(1))
+              })),
+              loading: false,
+              error: response.trends?.error,
+              key: 'performance-graph'
+            }),
+            
+            // Campaign Analysis (which contains the pie chart)
+            React.createElement(CampaignAnalysis, {
+              analysis: {
+                stats: {
+                  performanceMetrics: [
+                    { name: 'Open Rate', value: Number(response.stats.openRate || 0) },
+                    { name: 'Click Rate', value: Number(response.stats.clickRate || 0) },
+                    { name: 'Conversion Rate', value: Number(response.stats.conversionRate || 0) },
+                    { name: 'Bounce Rate', value: Number(response.stats.bounceRate || 0) },
+                    { name: 'Click to Open Rate', value: Number(response.stats.clickToOpenRate || 0) }
+                  ],
+                  deviceStats: response.stats.deviceStats || [],
+                  deviceBreakdown: response.stats.deviceBreakdown || { Desktop: 100 }
+                }
+              }
+            })
+          ]
+        });
 
-        components.push(
-          React.createElement(CampaignAnalysis, { 
-            analysis: {
-              stats: response.stats,
-              trends: response.trends || [],
-              suggestions: response.suggestions || []
-            },
-            key: 'analysis' 
-          })
-        );
-
-        if (response.suggestions?.length) {
-          components.push(
+        // Add suggestions below the charts
+        const suggestions = [];
+        if (formattedImprovements.length > 0) {
+          suggestions.push(
             React.createElement(CampaignSuggestions, {
-              suggestions: response.suggestions,
-              key: 'suggestions'
+              suggestions: formattedImprovements,
+              type: 'improvement',
+              key: 'improvements'
             })
           );
         }
-      }
 
-      return {
-        text: response.analysis || 'Here are your campaign statistics:',
-        component: components.length > 0 ? React.createElement('div', { 
-          className: 'space-y-4 w-full',
-          children: components 
-        }) : undefined
-      };
+        if (formattedActions.length > 0) {
+          suggestions.push(
+            React.createElement(CampaignSuggestions, {
+              suggestions: formattedActions,
+              type: 'action',
+              key: 'actions'
+            })
+          );
+        }
+
+        // Return the complete component structure
+        return {
+          text: formattedAnalysis || 'Here are your campaign statistics:',
+          component: React.createElement('div', { 
+            className: 'space-y-4 w-full',
+            children: [chartsContainer, ...suggestions]
+          })
+        };
+      } catch (error) {
+        console.error('Error in campaign analysis:', error);
+        return { 
+          text: "I encountered an error analyzing the campaign. Please check the campaign name and try again." 
+        };
+      }
     }
 
     return { 
