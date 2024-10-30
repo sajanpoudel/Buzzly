@@ -56,6 +56,44 @@ export async function handlePlaygroundQuery(message: string, userId: string): Pr
 
     console.log('Processing query with userId:', userId);
 
+    // Use handleUserInput from functionHandler.ts with UI callbacks
+    const response = await handleUserInput(message, userId, {
+      startEmailCreation: () => {
+        return { 
+          text: "Let's create a new email. I've opened the email creation form for you.",
+          component: undefined
+        };
+      },
+      openPaymentForm: () => {
+        return { 
+          text: "I've opened the payment form for you.",
+          component: undefined
+        };
+      },
+      startTemplateCreation: () => {
+        return { 
+          text: "Let's create a new email template. I've opened the template creation form.",
+          component: undefined
+        };
+      },
+      startCampaignCreation: () => {
+        return { 
+          text: "I'll help you create a new campaign. What would you like to name it?",
+          component: undefined
+        };
+      }
+    });
+
+    // If response is a string, return it directly
+    if (typeof response === 'string') {
+      return { text: response };
+    }
+
+    // Handle campaign analysis response
+    if ('analysis' in response) {
+      // ... existing campaign analysis code ...
+    }
+
     // Check for overall performance query
     if (message.toLowerCase().includes('overall') || 
         message.toLowerCase().includes('all campaigns') ||
@@ -211,9 +249,18 @@ ${response.suggestions.map(suggestion => `• ${suggestion}`).join('\n')}
       }
     }
 
+    // If no specific action was taken, return the default help message
     return { 
-      text: "I can help you analyze campaign performance, provide improvement suggestions, or show overall campaign statistics. What would you like to know?" 
+      text: "I can help you with:\n\n" +
+            "1. Creating new campaigns\n" +
+            "2. Creating email templates\n" +
+            "3. Sending or drafting emails\n" +
+            "4. Analyzing campaign performance\n" +
+            "5. Viewing overall statistics\n" +
+            "6. Getting marketing tips\n\n" +
+            "What would you like to do?"
     };
+
   } catch (error) {
     console.error('Error handling playground query:', error);
     return {
