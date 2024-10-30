@@ -1,101 +1,118 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
-import { Search, Moon, Bell, MoreVertical, Menu, Sun, Loader } from 'lucide-react'
+import React, { useState, useEffect } from "react"
+import { Search, Moon, Bell, MoreVertical, Menu, Sun, Loader } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import Link from 'next/link'
-import Sidebar from '@/components/Sidebar'
-import { getInitialsFromEmail } from '@/utils/stringUtils';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Link from "next/link"
+import Sidebar from "@/components/Sidebar"
+import { getInitialsFromEmail } from "@/utils/stringUtils"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 export default function CreateTemplate() {
   const [darkMode, setDarkMode] = useState(false)
-  const [templateName, setTemplateName] = useState('')
-  const [templateFee, setTemplateFee] = useState('')
-  const [templateCategory, setTemplateCategory] = useState('')
-  const [templateDescription, setTemplateDescription] = useState('')
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
+  const [templateName, setTemplateName] = useState("")
+  const [templateFee, setTemplateFee] = useState("")
+  const [templateCategory, setTemplateCategory] = useState("")
+  const [templateDescription, setTemplateDescription] = useState("")
+  const [subject, setSubject] = useState("")
+  const [body, setBody] = useState("")
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(
+    null
+  )
+  const [isGenerating, setIsGenerating] = useState(false)
 
   useEffect(() => {
     const fetchUserInfo = async () => {
-      const storedTokens = localStorage.getItem('gmail_tokens');
+      const storedTokens = localStorage.getItem("gmail_tokens")
       if (storedTokens) {
-        const tokens = JSON.parse(storedTokens);
+        const tokens = JSON.parse(storedTokens)
         try {
-          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
-            method: 'POST',
+          const response = await fetch("https://emailapp-backend.onrender.com/auth/user-info", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({ tokens }),
-          });
+          })
           if (response.ok) {
-            const data = await response.json();
-            setUserInfo(data);
+            const data = await response.json()
+            setUserInfo(data)
           } else {
-            console.error('Failed to fetch user info');
+            console.error("Failed to fetch user info")
           }
         } catch (error) {
-          console.error('Error fetching user info:', error);
+          console.error("Error fetching user info:", error)
         }
       }
-    };
+    }
 
-    fetchUserInfo();
-  }, []);
+    fetchUserInfo()
+  }, [])
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
-    document.documentElement.classList.toggle('dark')
+    document.documentElement.classList.toggle("dark")
   }
 
   const generateTemplate = async () => {
-    setIsGenerating(true);
+    setIsGenerating(true)
     try {
-      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" })
 
       const prompt = `Generate an email template with the following details:
         Template Name: ${templateName}
         Category: ${templateCategory}
         Description: ${templateDescription}
         
-        Please provide a subject line and email body. Use [NAME] as a placeholder for the recipient's name. Do not include "Subject:" or any asterisks in the response. Separate the subject and body with two newline characters.`;
+        Please provide a subject line and email body. Use [NAME] as a placeholder for the recipient's name. Do not include "Subject:" or any asterisks in the response. Separate the subject and body with two newline characters.`
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const generatedText = response.text();
+      const result = await model.generateContent(prompt)
+      const response = await result.response
+      const generatedText = response.text()
 
-      console.log('Generated Text:', generatedText);
+      console.log("Generated Text:", generatedText)
 
-      const [generatedSubject, ...bodyParts] = generatedText.split('\n\n');
-      setSubject(generatedSubject.trim());
-      setBody(bodyParts.join('\n\n').trim());
+      const [generatedSubject, ...bodyParts] = generatedText.split("\n\n")
+      setSubject(generatedSubject.trim())
+      setBody(bodyParts.join("\n\n").trim())
     } catch (error) {
-      console.error('Error generating template:', error);
+      console.error("Error generating template:", error)
       // You might want to set an error state here to display to the user
     } finally {
-      setIsGenerating(false);
+      setIsGenerating(false)
     }
-  };
+  }
 
   const handleSaveTemplate = () => {
     // Implement save template logic here
-    console.log('Template saved:', { templateName, templateFee, templateCategory, templateDescription, subject, body })
+    console.log("Template saved:", {
+      templateName,
+      templateFee,
+      templateCategory,
+      templateDescription,
+      subject,
+      body,
+    })
   }
 
   return (
-    <div className={`flex flex-col h-screen bg-gray-100 dark:bg-gray-900 ${darkMode ? 'dark' : ''}`}>
+    <div
+      className={`flex flex-col h-screen bg-gray-100 dark:bg-gray-900 ${darkMode ? "dark" : ""}`}
+    >
       <header className="bg-white dark:bg-gray-800 shadow-sm lg:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
@@ -109,8 +126,8 @@ export default function CreateTemplate() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
-          darkMode={darkMode} 
+        <Sidebar
+          darkMode={darkMode}
           toggleDarkMode={toggleDarkMode}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
@@ -132,7 +149,7 @@ export default function CreateTemplate() {
                     <AvatarImage src={userInfo.picture} alt={userInfo.name || userInfo.email} />
                   ) : (
                     <AvatarFallback>
-                      {userInfo ? getInitialsFromEmail(userInfo.email) : 'U'}
+                      {userInfo ? getInitialsFromEmail(userInfo.email) : "U"}
                     </AvatarFallback>
                   )}
                 </Avatar>
@@ -191,10 +208,12 @@ export default function CreateTemplate() {
                       />
                     </div>
                   </div>
-                
-                  <Button 
-                    onClick={generateTemplate} 
-                    disabled={isGenerating || !templateName || !templateCategory || !templateDescription}
+
+                  <Button
+                    onClick={generateTemplate}
+                    disabled={
+                      isGenerating || !templateName || !templateCategory || !templateDescription
+                    }
                     className="w-full bg-purple-600 hover:bg-purple-700 text-white"
                   >
                     {isGenerating ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -211,7 +230,7 @@ export default function CreateTemplate() {
                       className="bg-white dark:bg-gray-800"
                     />
                   </div>
-                
+
                   <div className="space-y-2">
                     <Label htmlFor="body">Email Body</Label>
                     <Textarea
@@ -233,7 +252,10 @@ export default function CreateTemplate() {
                         TRY ANOTHER TEMPLATE
                       </Button>
                     </div>
-                    <Button onClick={handleSaveTemplate} className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto">
+                    <Button
+                      onClick={handleSaveTemplate}
+                      className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
+                    >
                       SAVE TEMPLATE
                     </Button>
                   </div>
@@ -246,16 +268,16 @@ export default function CreateTemplate() {
 
       {/* Mobile sidebar overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         ></div>
       )}
 
       {/* Mobile sidebar */}
-      <Sidebar 
-        darkMode={darkMode} 
-        toggleDarkMode={toggleDarkMode} 
+      <Sidebar
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
         className="lg:hidden"
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
