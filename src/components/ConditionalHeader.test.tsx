@@ -38,4 +38,11 @@ describe('ConditionalHeader', () => {
     render(<ConditionalHeader />)
     expect(screen.getByText('U')).toBeInTheDocument()
   })
+
+  it('does not call the api without stored tokens', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ConditionalHeader />)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 });
