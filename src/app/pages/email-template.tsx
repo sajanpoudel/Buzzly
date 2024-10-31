@@ -1,16 +1,39 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
-import { Search, Grid, Moon, Bell, MoreVertical, ChevronDown, ArrowUpRight, Menu, Sun } from 'lucide-react'
+import React, { useState, useEffect } from "react"
+import {
+  Search,
+  Grid,
+  Moon,
+  Bell,
+  MoreVertical,
+  ChevronDown,
+  ArrowUpRight,
+  Menu,
+  Sun,
+} from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import Sidebar from '@/components/Sidebar'
-import Link from 'next/link'
-import { getInitialsFromEmail } from '@/utils/stringUtils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import Sidebar from "@/components/Sidebar"
+import Link from "next/link"
+import { getInitialsFromEmail } from "@/utils/stringUtils"
 
 const statsData = [
   { label: "Total email sent", value: "5,325", subLabel: "Check history" },
@@ -38,52 +61,54 @@ const recentlySentData = [
 export default function EmailTemplateDashboard() {
   const [darkMode, setDarkMode] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ name: string; email: string; picture: string } | null>(
+    null
+  )
 
   useEffect(() => {
     // Check if dark mode is enabled in localStorage
-    const isDarkMode = localStorage.getItem('darkMode') === 'true'
+    const isDarkMode = localStorage.getItem("darkMode") === "true"
     setDarkMode(isDarkMode)
     if (isDarkMode) {
-      document.documentElement.classList.add('dark')
+      document.documentElement.classList.add("dark")
     }
 
     const fetchUserInfo = async () => {
-      const storedTokens = localStorage.getItem('gmail_tokens');
+      const storedTokens = localStorage.getItem("gmail_tokens")
       if (storedTokens) {
-        const tokens = JSON.parse(storedTokens);
+        const tokens = JSON.parse(storedTokens)
         try {
-          const response = await fetch('https://emailapp-backend.onrender.com/auth/user-info', {
-            method: 'POST',
+          const response = await fetch("https://emailapp-backend.onrender.com/auth/user-info", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({ tokens }),
-          });
+          })
           if (response.ok) {
-            const data = await response.json();
-            setUserInfo(data);
+            const data = await response.json()
+            setUserInfo(data)
           } else {
-            console.error('Failed to fetch user info');
+            console.error("Failed to fetch user info")
           }
         } catch (error) {
-          console.error('Error fetching user info:', error);
+          console.error("Error fetching user info:", error)
         }
       }
-    };
+    }
 
-    fetchUserInfo();
+    fetchUserInfo()
   }, [])
 
   const toggleDarkMode = () => {
     const newDarkMode = !darkMode
     setDarkMode(newDarkMode)
-    localStorage.setItem('darkMode', newDarkMode.toString())
-    document.documentElement.classList.toggle('dark')
+    localStorage.setItem("darkMode", newDarkMode.toString())
+    document.documentElement.classList.toggle("dark")
   }
 
   return (
-    <div className={`flex flex-col h-screen ${darkMode ? 'dark' : ''}`}>
+    <div className={`flex flex-col h-screen ${darkMode ? "dark" : ""}`}>
       <header className="bg-white dark:bg-gray-800 shadow-sm lg:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
@@ -97,8 +122,8 @@ export default function EmailTemplateDashboard() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
-          darkMode={darkMode} 
+        <Sidebar
+          darkMode={darkMode}
           toggleDarkMode={toggleDarkMode}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
@@ -109,13 +134,22 @@ export default function EmailTemplateDashboard() {
             <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="relative w-full lg:w-96 mb-4 lg:mb-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <Input type="search" placeholder="Search email or templates" className="pl-10 pr-4 py-2 w-full" />
+                <Input
+                  type="search"
+                  placeholder="Search email or templates"
+                  className="pl-10 pr-4 py-2 w-full"
+                />
               </div>
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" size="icon" className="hidden lg:inline-flex">
                   <Grid className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={toggleDarkMode}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden lg:inline-flex"
+                  onClick={toggleDarkMode}
+                >
                   {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                 </Button>
                 <Button variant="ghost" size="icon" className="hidden lg:inline-flex">
@@ -126,7 +160,7 @@ export default function EmailTemplateDashboard() {
                     <AvatarImage src={userInfo.picture} alt={userInfo.name || userInfo.email} />
                   ) : (
                     <AvatarFallback>
-                      {userInfo ? getInitialsFromEmail(userInfo.email) : 'U'}
+                      {userInfo ? getInitialsFromEmail(userInfo.email) : "U"}
                     </AvatarFallback>
                   )}
                 </Avatar>
@@ -151,9 +185,13 @@ export default function EmailTemplateDashboard() {
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 space-y-4 lg:space-y-0">
               <div className="space-y-2 lg:space-y-0 lg:space-x-2 w-full lg:w-auto">
                 <Link href="/create-template">
-                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full lg:w-auto mb-2 lg:mb-0">CREATE EMAIL TEMPLATE</Button>
+                  <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full lg:w-auto mb-2 lg:mb-0">
+                    CREATE EMAIL TEMPLATE
+                  </Button>
                 </Link>
-                <Button variant="outline" className="w-full lg:w-auto">ADD NEW CLIENT</Button>
+                <Button variant="outline" className="w-full lg:w-auto">
+                  ADD NEW CLIENT
+                </Button>
               </div>
               <Select defaultValue="30">
                 <SelectTrigger className="w-full lg:w-[180px]">
@@ -171,10 +209,16 @@ export default function EmailTemplateDashboard() {
               <Card className="flex-grow">
                 <CardContent className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold dark:text-white">Recently used templates</h2>
-                    <Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button>
+                    <h2 className="text-xl font-semibold dark:text-white">
+                      Recently used templates
+                    </h2>
+                    <Button variant="ghost" size="sm">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose email templates for time saving</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Choose email templates for time saving
+                  </p>
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -194,14 +238,28 @@ export default function EmailTemplateDashboard() {
                                 <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg mr-2"></div>
                                 <div>
                                   <p className="font-medium dark:text-white">{template.name}</p>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">{template.description}</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {template.description}
+                                  </p>
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell className="dark:text-gray-300">{template.price}</TableCell>
-                            <TableCell><Button variant="outline" size="sm">PREVIEW</Button></TableCell>
-                            <TableCell><Button variant="outline" size="sm">EDIT</Button></TableCell>
-                            <TableCell><Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button></TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm">
+                                PREVIEW
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm">
+                                EDIT
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -214,25 +272,36 @@ export default function EmailTemplateDashboard() {
                 <CardContent className="p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold dark:text-white">RECENTLY SEND</h2>
-                    <Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
                   </div>
                   <ul className="space-y-4">
                     {recentlySentData.map((item, index) => (
                       <li key={index} className="flex items-center justify-between">
                         <div className="flex items-center">
                           <Avatar className="h-10 w-10 mr-3">
-                            <AvatarFallback>{item.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                            <AvatarFallback>
+                              {item.name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="font-medium dark:text-white">{item.name}</p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{item.time}</p>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm"><ArrowUpRight className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm">
+                          <ArrowUpRight className="h-4 w-4" />
+                        </Button>
                       </li>
                     ))}
                   </ul>
-                  <Button variant="link" className="w-full mt-4">View More...</Button>
+                  <Button variant="link" className="w-full mt-4">
+                    View More...
+                  </Button>
                 </CardContent>
               </Card>
             </div>
@@ -242,16 +311,16 @@ export default function EmailTemplateDashboard() {
 
       {/* Mobile sidebar overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         ></div>
       )}
 
       {/* Mobile sidebar */}
-      <Sidebar 
-        darkMode={darkMode} 
-        toggleDarkMode={toggleDarkMode} 
+      <Sidebar
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
         className="lg:hidden"
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
