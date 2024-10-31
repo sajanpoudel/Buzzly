@@ -1,32 +1,30 @@
 "use client"
 
-import React from 'react'
+import React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useRouter } from 'next/navigation'
-import useAuth from "@/hooks/useAuth";
-
+import { useRouter } from "next/navigation"
+import useAuth from "@/hooks/useAuth"
 
 export default function Login() {
   const router = useRouter()
-  const isLoggedIn = useAuth();
+  const isLoggedIn = useAuth()
   console.log("is this logged in ", isLoggedIn)
   if (isLoggedIn) {
-    router.push('/dashboard')
-  }  
- 
+    router.push("/dashboard")
+  }
 
   const handleGoogleLogin = async () => {
     try {
-      const token = localStorage.getItem('gmail_tokens');
-      console.log('Token at login :', token);
-      if(token){
-        router.push('/dashboard');
+      const token = localStorage.getItem("gmail_tokens")
+      console.log("Token at login :", token)
+      if (token) {
+        router.push("/dashboard")
       }
       // Redirect to your backend's Google OAuth URL
-      window.location.href = 'https://emailapp-backend.onrender.com/auth/google'
+      window.location.href = "https://emailapp-backend.onrender.com/auth/google"
     } catch (error) {
-      console.error('Error during Google login:', error)
+      console.error("Error during Google login:", error)
     }
   }
 
