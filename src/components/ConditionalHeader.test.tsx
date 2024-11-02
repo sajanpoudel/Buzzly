@@ -45,4 +45,17 @@ describe('ConditionalHeader', () => {
     render(<ConditionalHeader />)
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('loads the user info and shows the initials of the email', async () => {
+    storage.set('gmail_tokens', JSON.stringify({ access_token: 'x' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ name: 'Jane Doe', email: 'jane.doe@example.com', picture: '' }),
+      })
+    )
+    render(<ConditionalHeader />)
+    await waitFor(() => expect(screen.getByText('JD')).toBeInTheDocument())
+  })
 });
