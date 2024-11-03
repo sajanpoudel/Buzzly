@@ -58,4 +58,12 @@ describe('ConditionalHeader', () => {
     render(<ConditionalHeader />)
     await waitFor(() => expect(screen.getByText('JD')).toBeInTheDocument())
   })
+
+  it('keeps the fallback when the api fails', async () => {
+    storage.set('gmail_tokens', JSON.stringify({ access_token: 'x' }))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
+    render(<ConditionalHeader />)
+    await waitFor(() => expect(console.error).toHaveBeenCalled())
+    expect(screen.getByText('U')).toBeInTheDocument()
+  })
 });
