@@ -1,53 +1,56 @@
 export interface Campaign {
-  id: string;
-  name: string;
-  type: string;
-  subject: string;
-  body: string;
-  startDate: string;
-  endDate: string;
-  isRecurring: boolean;
-  targetAudience: string;
-  recipients: { name: string; email: string }[];
-  status: string;
+  id: string
+  name: string
+  type: string
+  subject: string
+  body: string
+  startDate: string
+  endDate: string
+  isRecurring: boolean
+  targetAudience: string
+  recipients: { name: string; email: string }[]
+  status: string
   stats: {
-    sent: number;
-    opened: number;
-    clicked: number;
-    converted: number;
-  };
-  trackingIds: string[];
+    sent: number
+    opened: number
+    clicked: number
+    converted: number
+  }
+  trackingIds: string[]
 }
 
-const CAMPAIGNS_KEY = 'email_campaigns';
+const CAMPAIGNS_KEY = "email_campaigns"
 
 export function saveCampaign(campaign: Campaign): void {
-  const campaigns = getCampaigns();
-  campaigns.push(campaign);
-  localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(campaigns));
+  const campaigns = getCampaigns()
+  campaigns.push(campaign)
+  localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(campaigns))
 }
 
 export function getCampaigns(): Campaign[] {
-  const campaignsJson = localStorage.getItem(CAMPAIGNS_KEY);
+  const campaignsJson = localStorage.getItem(CAMPAIGNS_KEY)
   if (!campaignsJson) {
-    return [];
+    return []
   }
   try {
-    return JSON.parse(campaignsJson);
+    return JSON.parse(campaignsJson)
   } catch {
     // The stored value is corrupted, start again from an empty list
-    return [];
+    return []
   }
 }
 
-export function updateCampaignStats(id: string, stats: { opened: number; clicked: number; converted: number }): void {
-  const campaigns = getCampaigns();
-  const campaignIndex = campaigns.findIndex(c => c.id === id);
+export function updateCampaignStats(
+  id: string,
+  stats: { opened: number; clicked: number; converted: number }
+): void {
+  const campaigns = getCampaigns()
+  const campaignIndex = campaigns.findIndex((c) => c.id === id)
   if (campaignIndex !== -1) {
     campaigns[campaignIndex].stats = {
       ...campaigns[campaignIndex].stats,
-      ...stats
-    };
-    localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(campaigns));
+      ...stats,
+    }
+    localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(campaigns))
   }
 }
