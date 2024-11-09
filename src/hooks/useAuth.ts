@@ -1,40 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react"
 
 // Hook to check if the user is logged in
 const useAuth = () => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
-    useEffect(() => {
-        const checkAuth = () => {
-            const storedTokens = localStorage.getItem('gmail_tokens');
+  useEffect(() => {
+    const checkAuth = () => {
+      const storedTokens = localStorage.getItem("gmail_tokens")
 
-            // If there are no tokens, set logged in state to false
-            if (!storedTokens) {
-                setIsLoggedIn(false);
-                return;
-            }
+      // If there are no tokens, set logged in state to false
+      if (!storedTokens) {
+        setIsLoggedIn(false)
+        return
+      }
 
-            // Parse the tokens from local storage, treating corrupted data as logged out
-            let googleTokens;
-            try {
-                googleTokens = JSON.parse(storedTokens);
-            } catch {
-                setIsLoggedIn(false);
-                return;
-            }
-            const { access_token, expiry_date } = googleTokens;
+      // Parse the tokens from local storage, treating corrupted data as logged out
+      let googleTokens
+      try {
+        googleTokens = JSON.parse(storedTokens)
+      } catch {
+        setIsLoggedIn(false)
+        return
+      }
+      const { access_token, expiry_date } = googleTokens
 
-            // Check if the access token is present and if it hasn't expired
-            const currentTime = Date.now();
-            const isTokenValid = Boolean(access_token) && currentTime < expiry_date;
+      // Check if the access token is present and if it hasn't expired
+      const currentTime = Date.now()
+      const isTokenValid = Boolean(access_token) && currentTime < expiry_date
 
-            setIsLoggedIn(isTokenValid);
-        };
+      setIsLoggedIn(isTokenValid)
+    }
 
-        checkAuth();
-    }, []); // Empty dependency array means this effect runs once on mount
+    checkAuth()
+  }, []) // Empty dependency array means this effect runs once on mount
 
-    return isLoggedIn;
-};
+  return isLoggedIn
+}
 
-export default useAuth;
+export default useAuth
