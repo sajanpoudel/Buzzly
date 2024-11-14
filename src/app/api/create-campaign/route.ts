@@ -10,6 +10,7 @@ function parseOptionalDate(value: unknown): Date | null | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date
 }
 
+/** POST /api/create-campaign */
 export async function POST(request: Request) {
   try {
     // Parse the request body
