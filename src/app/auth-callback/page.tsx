@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import axios from "axios"
 
+/** Page rendered at /auth-callback. */
 export default function AuthCallback() {
   const router = useRouter()
   const searchParams = useSearchParams()
