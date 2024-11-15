@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import prismadb from "@/lib/prismadb" // Make sure to adjust this path to where your Prisma instance is configured.
 
+/** POST /api/store-user */
 export async function POST(request: Request) {
   try {
     // Get the request body
