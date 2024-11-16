@@ -9,6 +9,7 @@ import { getCampaigns, Campaign, updateCampaignStats } from "@/utils/campaignSto
 import EmailTrackingStats from "@/components/EmailTrackingStats"
 import { useRouter } from "next/navigation"
 
+/** Page rendered at /campaign/:id. */
 export default function CampaignDetails() {
   const router = useRouter()
   const params = useParams()
