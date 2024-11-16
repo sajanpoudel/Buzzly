@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import CreateCampaign from "@/app/pages/create-campaign"
 
+/** Page rendered at /create-campaign. */
 export default function CreateCampaignPage() {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
