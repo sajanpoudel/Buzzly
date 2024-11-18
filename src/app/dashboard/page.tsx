@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Dashboard from "@/app/pages/dashboard"
 
+/** Page rendered at /dashboard. */
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
