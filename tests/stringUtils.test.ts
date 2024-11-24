@@ -11,3 +11,7 @@ test('splits on underscores and hyphens too', () => {
   assert.equal(getInitialsFromEmail('jane_doe@example.com'), 'JD')
   assert.equal(getInitialsFromEmail('jane-doe@example.com'), 'JD')
 })
+
+test('uses the first two letters of a single name', () => {
+  assert.equal(getInitialsFromEmail('nishar@example.com'), 'NI')
+})
