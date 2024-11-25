@@ -15,3 +15,7 @@ test('splits on underscores and hyphens too', () => {
 test('uses the first two letters of a single name', () => {
   assert.equal(getInitialsFromEmail('nishar@example.com'), 'NI')
 })
+
+test('only the first two parts count', () => {
+  assert.equal(getInitialsFromEmail('a.b.c@example.com'), 'AB')
+})
