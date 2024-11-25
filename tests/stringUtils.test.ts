@@ -23,3 +23,7 @@ test('only the first two parts count', () => {
 test('ignores empty parts', () => {
   assert.equal(getInitialsFromEmail('.jane..doe@example.com'), 'JD')
 })
+
+test('returns an empty string when there is no name', () => {
+  assert.equal(getInitialsFromEmail('@example.com'), '')
+})
