@@ -19,3 +19,7 @@ test('uses the first two letters of a single name', () => {
 test('only the first two parts count', () => {
   assert.equal(getInitialsFromEmail('a.b.c@example.com'), 'AB')
 })
+
+test('ignores empty parts', () => {
+  assert.equal(getInitialsFromEmail('.jane..doe@example.com'), 'JD')
+})
