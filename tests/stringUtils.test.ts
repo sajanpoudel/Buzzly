@@ -27,3 +27,7 @@ test('ignores empty parts', () => {
 test('returns an empty string when there is no name', () => {
   assert.equal(getInitialsFromEmail('@example.com'), '')
 })
+
+test('always upper cases the initials', () => {
+  assert.equal(getInitialsFromEmail('mixed.Case@example.com'), 'MC')
+})
