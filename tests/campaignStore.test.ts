@@ -34,3 +34,7 @@ function campaign(id: string): Campaign {
 }
 
 beforeEach(() => storage.clear())
+
+test('getCampaigns starts empty', () => {
+  assert.deepEqual(getCampaigns(), [])
+})
