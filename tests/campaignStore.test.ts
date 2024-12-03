@@ -38,3 +38,9 @@ beforeEach(() => storage.clear())
 test('getCampaigns starts empty', () => {
   assert.deepEqual(getCampaigns(), [])
 })
+
+test('saveCampaign stores a campaign', () => {
+  saveCampaign(campaign('1'))
+  assert.equal(getCampaigns().length, 1)
+  assert.equal(getCampaigns()[0].name, 'Campaign 1')
+})
