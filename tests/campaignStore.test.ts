@@ -56,3 +56,9 @@ test('updateCampaignStats merges the new numbers', () => {
   updateCampaignStats('1', { opened: 5, clicked: 2, converted: 1 })
   assert.deepEqual(getCampaigns()[0].stats, { sent: 0, opened: 5, clicked: 2, converted: 1 })
 })
+
+test('updateCampaignStats ignores an unknown id', () => {
+  saveCampaign(campaign('1'))
+  updateCampaignStats('missing', { opened: 9, clicked: 9, converted: 9 })
+  assert.equal(getCampaigns()[0].stats.opened, 0)
+})
