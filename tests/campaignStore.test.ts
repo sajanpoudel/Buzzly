@@ -50,3 +50,9 @@ test('saveCampaign keeps the order of saves', () => {
   saveCampaign(campaign('2'))
   assert.deepEqual(getCampaigns().map((c) => c.id), ['1', '2'])
 })
+
+test('updateCampaignStats merges the new numbers', () => {
+  saveCampaign(campaign('1'))
+  updateCampaignStats('1', { opened: 5, clicked: 2, converted: 1 })
+  assert.deepEqual(getCampaigns()[0].stats, { sent: 0, opened: 5, clicked: 2, converted: 1 })
+})
