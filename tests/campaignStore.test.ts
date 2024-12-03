@@ -44,3 +44,9 @@ test('saveCampaign stores a campaign', () => {
   assert.equal(getCampaigns().length, 1)
   assert.equal(getCampaigns()[0].name, 'Campaign 1')
 })
+
+test('saveCampaign keeps the order of saves', () => {
+  saveCampaign(campaign('1'))
+  saveCampaign(campaign('2'))
+  assert.deepEqual(getCampaigns().map((c) => c.id), ['1', '2'])
+})
