@@ -62,3 +62,8 @@ test('updateCampaignStats ignores an unknown id', () => {
   updateCampaignStats('missing', { opened: 9, clicked: 9, converted: 9 })
   assert.equal(getCampaigns()[0].stats.opened, 0)
 })
+
+test('getCampaigns recovers from corrupted data', () => {
+  storage.set('email_campaigns', '{not json')
+  assert.deepEqual(getCampaigns(), [])
+})
