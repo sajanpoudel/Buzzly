@@ -1,33 +1,33 @@
-import test from 'node:test'
-import assert from 'node:assert/strict'
+import test from "node:test"
+import assert from "node:assert/strict"
 
-import { getInitialsFromEmail } from '../src/utils/stringUtils.ts'
+import { getInitialsFromEmail } from "../src/utils/stringUtils.ts"
 
-test('uses the first letter of two name parts', () => {
-  assert.equal(getInitialsFromEmail('jane.doe@example.com'), 'JD')
+test("uses the first letter of two name parts", () => {
+  assert.equal(getInitialsFromEmail("jane.doe@example.com"), "JD")
 })
 
-test('splits on underscores and hyphens too', () => {
-  assert.equal(getInitialsFromEmail('jane_doe@example.com'), 'JD')
-  assert.equal(getInitialsFromEmail('jane-doe@example.com'), 'JD')
+test("splits on underscores and hyphens too", () => {
+  assert.equal(getInitialsFromEmail("jane_doe@example.com"), "JD")
+  assert.equal(getInitialsFromEmail("jane-doe@example.com"), "JD")
 })
 
-test('uses the first two letters of a single name', () => {
-  assert.equal(getInitialsFromEmail('nishar@example.com'), 'NI')
+test("uses the first two letters of a single name", () => {
+  assert.equal(getInitialsFromEmail("nishar@example.com"), "NI")
 })
 
-test('only the first two parts count', () => {
-  assert.equal(getInitialsFromEmail('a.b.c@example.com'), 'AB')
+test("only the first two parts count", () => {
+  assert.equal(getInitialsFromEmail("a.b.c@example.com"), "AB")
 })
 
-test('ignores empty parts', () => {
-  assert.equal(getInitialsFromEmail('.jane..doe@example.com'), 'JD')
+test("ignores empty parts", () => {
+  assert.equal(getInitialsFromEmail(".jane..doe@example.com"), "JD")
 })
 
-test('returns an empty string when there is no name', () => {
-  assert.equal(getInitialsFromEmail('@example.com'), '')
+test("returns an empty string when there is no name", () => {
+  assert.equal(getInitialsFromEmail("@example.com"), "")
 })
 
-test('always upper cases the initials', () => {
-  assert.equal(getInitialsFromEmail('mixed.Case@example.com'), 'MC')
+test("always upper cases the initials", () => {
+  assert.equal(getInitialsFromEmail("mixed.Case@example.com"), "MC")
 })
