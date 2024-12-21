@@ -15,3 +15,5 @@ jobs:
       - run: npm install --ignore-scripts
       - run: npx prisma generate
       - run: npx tsc --noEmit
+      - run: npm run test:ui
+      - run: npm test
